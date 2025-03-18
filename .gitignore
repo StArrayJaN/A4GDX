@@ -141,7 +141,7 @@ www-test/
 /headless/nbdist/
 /server/nbdist/
 /shared/nbdist/
-
+/release/
 nbactions.xml
 nb-configuration.xml
 

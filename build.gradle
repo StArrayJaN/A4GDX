@@ -1,3 +1,6 @@
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
 buildscript {
   repositories {
     maven { url 'https://maven.aliyun.com/repository/public/' }
@@ -57,6 +60,27 @@ configure(subprojects - project(':android')) {
   compileJava {
     options.incremental = true
   }
+}
+
+tasks.register('buildExecutable') {
+  dependsOn("android:assembleDebug")
+  dependsOn("lwjgl3:createExe")
+  doLast {
+    File[] files = new File(".", "release").listFiles()
+    if (files != null) {
+      for (File file : files) {
+        file.delete()
+      }
+    }
+    copy("lwjgl3/build/launch4j/A4GDX-${projectVersion}.exe", "release/A4GDX-${projectVersion}.exe")
+    copy("android/build/outputs/apk/debug/android-debug.apk", "release/A4GDX-${projectVersion}.apk")
+    copy("lwjgl3/build/libs/A4GDX-${projectVersion}.jar", "release/A4GDX-${projectVersion}.jar")
+  }
+}
+
+static void copy(String source, String destination) {
+  String workDir = System.getProperty("user.dir")
+  Files.copy(new File(workDir,source).toPath(), new File(workDir,destination).toPath(), StandardCopyOption.REPLACE_EXISTING)
 }
 
 subprojects {

@@ -1,6 +1,6 @@
 # A4GDX
 
-A [libGDX](https://libgdx.com/) project generated with [gdx-liftoff](https://github.com/libgdx/gdx-liftoff).
+[ADOFAI](https://fizzd.itch.io/a-dance-of-fire-and-ice) Client Based [libGDX](https://libgdx.com/)
 
 This project was generated with a template including simple application launchers and an empty `ApplicationAdapter` extension.
 
@@ -33,3 +33,8 @@ Useful Gradle tasks and flags:
 
 Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
 For example, `core:clean` removes `build` folder only from the `core` project.
+
+## Download
+
+- Executables(apk,jar,exe) on [Releases](https://github.com/StArrayJaN/A4GDX/releases)
+- Need [Java17](https://d.injdk.cn/download/openjdk/17)!!!!
