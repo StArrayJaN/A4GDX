@@ -24,7 +24,7 @@ public class GameActivity extends AndroidApplication {
         try {
             AndroidApplicationConfiguration configuration = new AndroidApplicationConfiguration();
             configuration.useImmersiveMode = true; // Recommended, but not required.
-            initialize(new ADOFAI(path), configuration);
+            initialize(new ADOFAI(path,false,false), configuration);
         } catch (Exception e) {
             AlertDialog alertDialog = new AlertDialog.Builder(this)
                 .setMessage(Tools.getStackTrace(e))

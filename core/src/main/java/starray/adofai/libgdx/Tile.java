@@ -39,8 +39,11 @@ public class Tile {
     public Tile(float startAngle, float endAngle, Vector2 pos) {
         this.startAngle = startAngle;
         this.endAngle = endAngle;
-        mesh = CreateTileMesh(length, width);
         position = pos;
+    }
+
+    public void createMesh() {
+        mesh = isMidspin ? CreateMidSpinMesh(startAngle) : CreateTileMesh(length, width);
     }
 
     public void setHitEd(boolean hited) {
@@ -58,9 +61,6 @@ public class Tile {
 
     public Tile setIsMidspin(boolean a) {
         isMidspin = a;
-        if (isMidspin) {
-            mesh = CreateMidSpinMesh(startAngle);
-        }
         return this;
     }
 

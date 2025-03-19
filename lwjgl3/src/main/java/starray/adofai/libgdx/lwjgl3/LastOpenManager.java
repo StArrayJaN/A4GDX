@@ -7,6 +7,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 public class LastOpenManager {
+    private static LastOpenManager instance;
+    static {
+        try {
+            instance = new LastOpenManager();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
     private File lastOpenFileJson;
     private JSONObject info = new JSONObject();;
     public static String PATH_KEY = "path";
@@ -16,14 +24,13 @@ public class LastOpenManager {
         init();
     }
 
-    public static LastOpenManager getInstance() throws IOException {
-        return new LastOpenManager();
+    public static LastOpenManager getInstance() {
+        return instance;
     }
 
     private void init() throws IOException {
-        lastOpenFileJson = new File(System.getProperty("user.dir") + File.separator + "config","lastOpenFile.json");
+        lastOpenFileJson = new File("lastOpenFile.json");
         if (!lastOpenFileJson.exists()) {
-            lastOpenFileJson.getParentFile().mkdir();
             lastOpenFileJson.createNewFile();
         } else {
             String fileContent = new String(Files.readAllBytes(lastOpenFileJson.toPath()));
@@ -31,6 +38,14 @@ public class LastOpenManager {
                 info = new JSONObject(fileContent);
             }
         }
+    }
+
+    public void putData(String key, String value) {
+        info.put(key, value);
+    }
+
+    public String getData(String key, String defaultValue) {
+        return info.optString(key, defaultValue);
     }
 
     public JSONObject getInfo() {
@@ -42,7 +57,7 @@ public class LastOpenManager {
     }
 
     public String getLastOpenFile() {
-        return info.optString(PATH_KEY,".");
+        return info.optString(PATH_KEY,"");
     }
 
     public String getKeyList() {
@@ -53,9 +68,13 @@ public class LastOpenManager {
         info.put(KEY_LIST_KEY, keys);
     }
 
-    public void save() throws IOException {
+    public void save() {
         if (info != null) {
-            Files.write(lastOpenFileJson.toPath(), info.toString(2).getBytes());
+            try {
+                Files.write(lastOpenFileJson.toPath(), info.toString(2).getBytes());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

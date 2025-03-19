@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
@@ -21,15 +22,19 @@ import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.io.File;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.json.JSONObject;
 import starray.adofai.Event.LevelEvent.PositionTrack;
 import starray.adofai.Level;
 import starray.adofai.LevelNotFoundException;
 import starray.adofai.LevelUtils;
+
+import javax.swing.*;
 
 public class ADOFAI extends ApplicationAdapter {
 
@@ -47,43 +52,65 @@ public class ADOFAI extends ApplicationAdapter {
     boolean isStarted;
     Planet bluePlanet;
     Planet redPlanet;
-    Planet greenPlanet;
-    boolean enableGreen;
     int currentTileIndex;
     double[] speedList;
     boolean inited = false;
 
-    private float cameraSpeed = 0.1f;
+    double bpm;
+
+    private BitmapFont font;
+    private SpriteBatch hudBatch;
+
+    private float cameraSpeed = 0.2f;
+    private float fps;
+    private float elapsedTime;
+    private int frameCount;
 
     boolean isPaused = false;
 
+    boolean dynamicCameraSpeed;
+    boolean showBPM;
+
+    String tilesProgress = "";
+    /*private final Thread getSpeedThread = new Thread(() -> {
+        try {
+            speedList = level.getSpeedList(simpleCallback);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    });*/
+
+    private Thread generateTilesThread;
+
     private ShaderProgram shader;
-    private BitmapFont font; // 字体对象
-    private SpriteBatch batch;
 
     //endregion
     //region 生命周期
     @Override
     public void create() {
+        currentTileIndex = 0;
         // 初始化着色器
+        bpm = level.getBPM();
         sound = Gdx.audio.newSound(Gdx.files.internal("kick.wav"));
         shader = new ShaderProgram(Gdx.files.internal("shaders/vertex.glsl").readString(),
             Gdx.files.internal("shaders/fragment.glsl").readString());
-
         if (!shader.isCompiled()) {
             throw new GdxRuntimeException("Shader编译错误: " + shader.getLog());
         }
         camera = new OrthographicCamera();
         camera.setToOrtho(false, Tools.getScreenCenter().x, Tools.getScreenCenter().y);
+        var parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
+        parameter.size = 20;
+        parameter.characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789][_!$%#@|\\/?-+=()*&.;:,{}\"´`'<>正在计算，进度创建轨道中";
+        font = new FreeTypeFontGenerator(Gdx.files.internal("SourceHanSansSC-Normal.otf")).generateFont(parameter);
+        hudBatch = new SpriteBatch();
 
-        speedList = level.getSpeedList();
-        camera.zoom = 3.5f;
+        /*getSpeedThread.start();*/
+
+        camera.zoom = 5f;
         bluePlanet = new Planet(Color.BLUE);
-
         bluePlanet.setSubPlanet(redPlanet);
-
         generateConnectedTiles();
-        bluePlanet.move(currentTile.getPosition());
         // 设置输入处理器
         Gdx.input.setInputProcessor(new InputAdapter() {
             @Override
@@ -101,24 +128,38 @@ public class ADOFAI extends ApplicationAdapter {
 
     @Override
     public void render() {
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         ScreenUtils.clear(Color.GRAY);
         shader.bind();
-        if (currentTile != null) {
+        updateFPS();
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("FPS: ").append(fps).append("\n");
+        float x = 20;  // 右侧留100像素空间
+        float y = Gdx.graphics.getHeight() - 20; // 顶部留20像素空间
+        if (generateTilesThread.isAlive()) {
+            stringBuilder
+                .append(tilesProgress);
+            drawText(stringBuilder.toString(), x, y);
+            return;
+        }
+        if (currentTile != null && cameraSpeed != 1) {
             camera.position.lerp(new Vector3(currentTile.getPosition(), 0), cameraSpeed);
+        } else if (cameraSpeed == 1f) {
+            camera.position.set(currentTile.getPosition(), 0);
         }
         shader.setUniformMatrix("u_proj", camera.combined);
         for (Tile tile : reverseTiles) {
-            Vector3 tilePos = new Vector3(tile.getPosition().x, tile.getPosition().y, 0);
             // 检查是否在摄像机视锥体内
-            if (camera.frustum.pointInFrustum(tilePos) && !tile.isHitEd()) {
+            if (camera.frustum.pointInFrustum(new Vector3(tile.getPosition().x, tile.getPosition().y, 0)) && !tile.isHitEd()) {
                 tile.render(shader);
             }
         }
         bluePlanet.render();
         keyEvent();
         camera.update();
+        if (showBPM) {
+            stringBuilder.append("当前BPM: ").append(bpm).append("\n");
+        }
+        drawText(stringBuilder.toString(), x, y);
     }
 
     @Override
@@ -127,75 +168,98 @@ public class ADOFAI extends ApplicationAdapter {
             tile.dispose();
         }
         shader.dispose();
+        tiles.clear();
+        reverseTiles.clear();
+        bpmList.clear();
+        speedList = null;
     }
 
     //endregion
     //region 方法体
-    public ADOFAI(String levelPath) throws LevelNotFoundException {
+    public ADOFAI(String levelPath, boolean dynamicCameraSpeed, boolean showBPM) throws LevelNotFoundException {
         level = Level.readLevelFile(levelPath);
+        this.dynamicCameraSpeed = dynamicCameraSpeed;
+        this.showBPM = showBPM;
+    }
+
+    private void drawText(String text, float x, float y) {
+        hudBatch.begin();
+        font.draw(hudBatch, text, x, y);
+        hudBatch.end();
+    }
+
+    private void updateFPS() {
+        elapsedTime += Gdx.graphics.getDeltaTime();
+        frameCount++;
+
+        if (elapsedTime >= 0.25f) { // 每0.25秒更新一次
+            fps = frameCount / elapsedTime;
+            frameCount = 0;
+            elapsedTime = 0;
+        }
     }
 
     private void generateConnectedTiles() {
-        try {
-            if (!tiles.isEmpty()) return;
-            final List<Float> angles = level.getCharts();
-            Float[] anglesArray = angles.toArray(new Float[0]);
-            List<Boolean> midSpins = new ArrayList<>();
+        generateTilesThread = new Thread(() -> {
+            try {
+                bpmList = LevelUtils.getNoteTimes(level);
+                if (!tiles.isEmpty()) return;
+                final List<Float> angles = level.getCharts();
+                Float[] anglesArray = angles.toArray(new Float[0]);
+                List<Boolean> midSpins = new ArrayList<>();
 
-            for (int i = 0; i < anglesArray.length; i++) {
-                midSpins.add(anglesArray[i] == 999);
-                if (anglesArray[i] == 999) {
-                    anglesArray[i] = anglesArray[i - 1] + 180;
-                }
-            }
-
-            Vector2 startPos = new Vector2(Tools.getScreenCenter());
-            boolean isCW = true;
-            System.out.println("20");
-
-            for (int i = 0; i <= anglesArray.length; i++) {
-                float angle1 = (i == anglesArray.length) ?
-                    anglesArray[i - 1] :
-                    anglesArray[i];
-                float angle2 = (i == 0) ? 0 : anglesArray[i - 1];
-                Vector2 pos = new Vector2(Tile.length * 2 * MathUtils.cosDeg(angle1), Tile.length * 2 * MathUtils.sinDeg(angle1));
-                if (level.hasEvent(i, PositionTrack.class.getSimpleName())) {
-                    JSONObject jsonObject = level.getEvents(i, PositionTrack.class.getSimpleName()).get(0);
-                    if (jsonObject.has("positionOffset") && !jsonObject.getBoolean("editorOnly")) {
-                        Vector2 position = new Vector2((float) jsonObject.getJSONArray("positionOffset").getDouble(0), (float) jsonObject.getJSONArray("positionOffset").getDouble(1));
-                        startPos.add(position.x * Tile.length * 2, position.y * Tile.length * 2);
+                for (int i = 0; i < anglesArray.length; i++) {
+                    midSpins.add(anglesArray[i] == 999);
+                    if (anglesArray[i] == 999) {
+                        anglesArray[i] = anglesArray[i - 1] + 180;
                     }
                 }
-                Tile tile = new Tile(angle1, angle2 - 180, new Vector2(startPos));
-                if (i == angles.size()) {
-                    tile.setIsMidspin(false);
-                } else {
-                    tile.setIsMidspin(midSpins.get(i));
+                Vector2 startPos = new Vector2(Tools.getScreenCenter());
+                for (int i = 0; i <= anglesArray.length; i++) {
+                    float angle1 = (i == anglesArray.length) ?
+                        anglesArray[i - 1] :
+                        anglesArray[i];
+                    float angle2 = (i == 0) ? 0 : anglesArray[i - 1];
+                    Vector2 pos = new Vector2(Tile.length * 2 * MathUtils.cosDeg(angle1), Tile.length * 2 * MathUtils.sinDeg(angle1));
+                    /*if (level.hasEvent(i, PositionTrack.class.getSimpleName())) {
+                        JSONObject jsonObject = level.getEvents(i, PositionTrack.class.getSimpleName()).get(0);
+                        if (jsonObject.has("positionOffset") && !jsonObject.getBoolean("editorOnly")) {
+                            Vector2 position = new Vector2((float) jsonObject.getJSONArray("positionOffset").getDouble(0), (float) jsonObject.getJSONArray("positionOffset").getDouble(1));
+                            startPos.add(position.x * Tile.length * 2, position.y * Tile.length * 2);
+                        }
+                    }*/
+                    Tile tile = new Tile(angle1, angle2 - 180, new Vector2(startPos));
+                    if (i == angles.size()) {
+                        tile.setIsMidspin(false);
+                    } else {
+                        tile.setIsMidspin(midSpins.get(i));
+                    }
+                    Gdx.app.postRunnable(tile::createMesh);
+                    startPos.add(pos);
+                    tiles.add(tile);
+                    tilesProgress = String.format("创建轨道中，进度:%d/%d", i, angles.size());
                 }
-                System.out.printf("%d/%d \n", i, angles.size());
-                startPos.add(pos);
-                tiles.add(tile);
-            }
-            System.out.println("40");
-            for (int i = 0; i < tiles.size(); i++) {
-                Tile tile = tiles.get(i);
-                if (i < tiles.size() - 1) {
-                    tile.setNext(tiles.get(i + 1));
+                for (int i = 0; i < tiles.size(); i++) {
+                    Tile tile = tiles.get(i);
+                    if (i < tiles.size() - 1) {
+                        tile.setNext(tiles.get(i + 1));
+                    }
+                    if (i > 0) {
+                        tile.setPrev(tiles.get(i - 1));
+                    }
                 }
-                if (i > 0) {
-                    tile.setPrev(tiles.get(i - 1));
-                }
-            }
-            System.out.println("100");
-            reverseTiles = new ArrayList<>(tiles);
-            Collections.reverse(reverseTiles);
-            currentTile = tiles.get(0);
-        } catch (Exception e) {
-            Tools.log("傻逼，对不起，你的应用发生了: " + e.getMessage() + """
+                reverseTiles = new ArrayList<>(tiles);
+                Collections.reverse(reverseTiles);
+                currentTile = tiles.get(0);
+                bluePlanet.move(currentTile.getPosition());
+            } catch (Exception e) {
+                Tools.log("傻逼，对不起，你的应用发生了: " + e.getMessage() + """
 
-                某些文件可能他妈的非常傻逼，所以不支持，滚吧
-                """ + Tools.getStackTrace(e));
-        }
+                    某些文件可能他妈的非常傻逼，所以不支持，滚吧
+                    """ + Tools.getStackTrace(e));
+            }
+        });
+        generateTilesThread.start();
     }
 
     public void keyEvent() {
@@ -204,7 +268,9 @@ public class ADOFAI extends ApplicationAdapter {
         } else if (Gdx.input.isKeyPressed(Keys.CONTROL_LEFT) && Gdx.input.isKeyPressed(Keys.RIGHT)) {
             camera.position.set(new Vector3(tiles.get(tiles.size() - 1).getPosition(), 0));
         } else if ((Gdx.input.isKeyPressed(Keys.SPACE) || Gdx.input.isTouched()) && !isStarted) {
-            bpmList = LevelUtils.getNoteTimes(level);
+            if (generateTilesThread.isAlive()) {
+                return;
+            }
             Music hitSound = null;
             if (Gdx.app.getType() != Application.ApplicationType.Android) {
                 hitSound = Gdx.audio.newMusic(Gdx.files.absolute(level.getCurrentLevelDir() + File.separator + "HitSounds.wav"));
@@ -212,27 +278,29 @@ public class ADOFAI extends ApplicationAdapter {
             }
 
             try {
-                if (level.getMusicPath() != null) {
-                    Music music = Gdx.audio.newMusic(Gdx.files.absolute(level.getMusicPath()));
-                    musics.add(music);
-                    music.play();
-                }
+                new Thread(() -> {
+                    if (level.getMusicPath() != null) {
+                        Music music = Gdx.audio.newMusic(Gdx.files.absolute(level.getMusicPath()));
+                        musics.add(music);
+                        music.play();
+                    }
+                }).start();
             } catch (Exception e) {
-                Tools.log(new UnsupportedEncodingException("不支持的音乐").initCause(e));
+                Tools.log(new UnsupportedEncodingException("不支持或无效的音乐").initCause(e));
             }
             final var h = hitSound;
             if (!Tools.isAndroid()) {
-                hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset(), new Runnable() {
+                hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 10, new Runnable() {
                     @Override
                     public void run() {
                         if (h != null) {
                             h.play();
                         }
                     }
-                }, 10));
+                }, 0));
                 hitsoundThread.start();
             }
-            gameThread = new Thread(() -> Tools.sleepRun(level.getOffset(), this::start, 9));
+            gameThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 10, this::start, 0));
             gameThread.start();
             isStarted = true;
         } else if (Gdx.input.isKeyPressed(Keys.R)) {
@@ -245,20 +313,23 @@ public class ADOFAI extends ApplicationAdapter {
     }
 
     public void start() {
-        currentTile = tiles.get(0);
-        double start = Tools.currentTime();
-        int events = 0;
-        while (events < bpmList.size() -1) {
-            if (isPaused) break;
-            double cur = Tools.currentTime();
-            double timeMilliseconds = (cur - start) + bpmList.get(0);
-            //大于15000BPM
-            while (events < bpmList.size() -1 && bpmList.get(events) <= timeMilliseconds) {
-                //根据bpm计算延迟
-                Gdx.app.postRunnable(this::moveTiles);
-                events++;
+        try {
+
+            currentTile = tiles.get(0);
+            double start = Tools.currentTime();
+            int events = 0;
+            while (events < bpmList.size() - 1) {
+                if (isPaused) break;
+                double cur = Tools.currentTime();
+                double timeMilliseconds = (cur - start) + bpmList.get(0);
+                //大于15000BPM
+                while (events < bpmList.size() - 1 && bpmList.get(events) <= timeMilliseconds) {
+                    //根据bpm计算延迟
+                    Gdx.app.postRunnable(this::moveTiles);
+                    events++;
+                }
             }
-        }
+        } catch (IndexOutOfBoundsException | NullPointerException ignored) {}
     }
 
     public void restart() throws InterruptedException {
@@ -275,8 +346,8 @@ public class ADOFAI extends ApplicationAdapter {
         }
         isPaused = false;
         Thread.sleep(1000);
-        gameThread = new Thread(() -> Tools.sleepRun(level.getOffset(), this::start, 3));
-        hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset(), musics.get(0)::play, 2));
+        gameThread = new Thread(() -> Tools.sleepRun(level.getOffset(), this::start, 5));
+        hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset(), musics.get(0)::play, 4));
         gameThread.start();
         hitsoundThread.start();
         if (musics.size() == 2) {
@@ -296,13 +367,26 @@ public class ADOFAI extends ApplicationAdapter {
             currentTileIndex++;
         }
         currentTile = tiles.get(currentTileIndex);
-        cameraSpeed = Tools.calculateSpeed((float) speedList[currentTileIndex -1]);
-        if (currentTileIndex >= 2) {
+        if (currentTileIndex >= 2 && currentTile.getPrevTile() != null && currentTile.getPrevTile().getPrevTile() != null) {
             currentTile.getPrevTile().getPrevTile().setHitEd(true);
         }
         if (Tools.isAndroid()) {
             sound.play();
         }
+
+        if (dynamicCameraSpeed || showBPM) {
+            if (level.hasEvent(currentTileIndex, "SetSpeed")) {
+                var event = level.getEvents(currentTileIndex, "SetSpeed").get(0).toMap();
+                if (event.get("speedType").equals("Multiplier")) {
+                    bpm *= ((Number) event.get("bpmMultiplier")).doubleValue();
+                } else {
+                    bpm = ((Number) event.get("beatsPerMinute")).doubleValue();
+                }
+                if (dynamicCameraSpeed)
+                    cameraSpeed = Tools.calculateSpeed((float) bpm);
+            }
+        }
+
         bluePlanet.move(currentTile.getPosition());
     }
     //endregion

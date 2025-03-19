@@ -20,11 +20,11 @@ public class Tools {
     }
 
     public static float calculateSpeed(float bpm) {
-        if (bpm > 15000) {
+        if (bpm > 7200) {
             return 1.0f; // 超过15000直接返回最大速度
         } else {
             // 将bpm映射到0.01~1.0之间
-            float speed = (0.01f + (bpm / 15000) * 0.99f);
+            float speed = (0.01f + (bpm / 7200) * 0.99f);
             // 确保速度不低于最小值0.01
             return Math.max(0.01f, speed);
         }

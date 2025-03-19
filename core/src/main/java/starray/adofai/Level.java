@@ -11,10 +11,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import starray.adofai.libgdx.SimpleCallback;
 
 @SuppressWarnings("All")
 public class Level {
@@ -214,20 +217,36 @@ public class Level {
         return speed;
     }
 
-    public double[] getSpeedList() throws JSONException {
+    public double[] getSpeedList(SimpleCallback simpleCallback) throws JSONException, InterruptedException, ExecutionException {
         double bpm = getBPM();
-        double[] speedList = new double[getCharts().size()];
-        for (int i = 0; i < getCharts().size(); i++) {
-            var events = getEvents(i, "SetSpeed");
-            for (JSONObject jsonObject : events) {
-                if (jsonObject.getString("speedType").equals("Multiplier")) {
-                    bpm *= jsonObject.getDouble("bpmMultiplier");
-                } else {
-                    bpm = jsonObject.getDouble("beatsPerMinute");
+        int chartSize = getCharts().size();
+        double[] speedList = new double[chartSize];
+        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+
+        List<Future<Double>> futures = new ArrayList<>();
+
+        for (int i = 0; i < chartSize; i++) {
+            final int index = i;
+            futures.add(executor.submit(() -> {
+                simpleCallback.call(new Class[]{String.class}, String.format("进度:%d/%d", index, chartSize));
+                var events = getEvents(index, "SetSpeed");
+                double currentBpm = bpm;
+                for (JSONObject jsonObject : events) {
+                    if (jsonObject.getString("speedType").equals("Multiplier")) {
+                        currentBpm *= jsonObject.getDouble("bpmMultiplier");
+                    } else {
+                        currentBpm = jsonObject.getDouble("beatsPerMinute");
+                    }
                 }
-            }
-            speedList[i] = bpm;
+                return currentBpm;
+            }));
         }
+
+        for (int i = 0; i < chartSize; i++) {
+            speedList[i] = futures.get(i).get();
+        }
+
+        executor.shutdown();
         return speedList;
     }
 

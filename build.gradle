@@ -3,10 +3,10 @@ import java.nio.file.StandardCopyOption
 
 buildscript {
   repositories {
+    maven { url 'https://maven.aliyun.com/repository/central/' }
     maven { url 'https://maven.aliyun.com/repository/public/' }
     maven { url 'https://maven.aliyun.com/repository/google/' }
     maven { url 'https://maven.aliyun.com/repository/gradle-plugin/' }
-    mavenCentral()
     maven { url 'https://s01.oss.sonatype.org' }
     gradlePluginPortal()
     mavenLocal()
@@ -34,7 +34,6 @@ allprojects {
 
 configure(subprojects - project(':android')) {
   apply plugin: 'java-library'
-  apply plugin: 'groovy'
   sourceCompatibility = 17
 
   // From https://lyze.dev/2021/04/29/libGDX-Internal-Assets-List/

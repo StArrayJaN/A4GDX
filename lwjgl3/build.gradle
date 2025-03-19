@@ -1,8 +1,5 @@
 
 buildscript {
-  repositories {
-    gradlePluginPortal()
-  }
   dependencies {
     classpath "io.github.fourlastor:construo:1.5.1"
     if(enableGraalNative == 'true') {
@@ -34,9 +31,11 @@ launch4j {
   jvmOptions = ['-Dfile.encoding=UTF-8','-Xms4G', '-Xmx16G']
 }
 dependencies {
+  implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
   implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
   implementation "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"
   implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+  implementation  "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
   implementation project(':core')
   implementation("com.badlogicgames.gdx:gdx-tools:$gdxVersion"){exclude group: 'com.badlogicgames.gdx', module: 'gdx-backend-lwjgl'}
 
@@ -57,7 +56,6 @@ run {
 
   if (os.contains('mac')) jvmArgs += "-XstartOnFirstThread"
 }
-
 tasks.register('runJar', JavaExec) {
   dependsOn(jar)
   mainClass = project.mainClassName
