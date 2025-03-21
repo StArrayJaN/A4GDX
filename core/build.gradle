@@ -11,5 +11,5 @@ dependencies {
     implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
   }
   implementation("org.json:json:20250107")
-//
+  implementation 'com.alibaba.fastjson2:fastjson2:2.0.56'
 }

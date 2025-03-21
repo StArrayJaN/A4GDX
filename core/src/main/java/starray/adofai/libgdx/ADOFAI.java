@@ -1,5 +1,6 @@
 package starray.adofai.libgdx;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.badlogic.gdx.Application;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -8,7 +9,6 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -21,20 +21,17 @@ import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ScreenUtils;
 
 import java.io.File;
+
 import java.io.UnsupportedEncodingException;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
-import org.json.JSONObject;
-import starray.adofai.Event.LevelEvent.PositionTrack;
+import starray.adofai.AudioMerger;
 import starray.adofai.Level;
 import starray.adofai.LevelNotFoundException;
 import starray.adofai.LevelUtils;
 
-import javax.swing.*;
 
 public class ADOFAI extends ApplicationAdapter {
 
@@ -53,7 +50,6 @@ public class ADOFAI extends ApplicationAdapter {
     Planet bluePlanet;
     Planet redPlanet;
     int currentTileIndex;
-    double[] speedList;
     boolean inited = false;
 
     double bpm;
@@ -61,7 +57,7 @@ public class ADOFAI extends ApplicationAdapter {
     private BitmapFont font;
     private SpriteBatch hudBatch;
 
-    private float cameraSpeed = 0.2f;
+    private float cameraSpeed = 0.25f;
     private float fps;
     private float elapsedTime;
     private int frameCount;
@@ -72,25 +68,19 @@ public class ADOFAI extends ApplicationAdapter {
     boolean showBPM;
 
     String tilesProgress = "";
-    /*private final Thread getSpeedThread = new Thread(() -> {
-        try {
-            speedList = level.getSpeedList(simpleCallback);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    });*/
-
     private Thread generateTilesThread;
 
     private ShaderProgram shader;
 
+    public float timer;
     //endregion
     //region 生命周期
     @Override
     public void create() {
         currentTileIndex = 0;
-        // 初始化着色器
         bpm = level.getBPM();
+        // 初始化着色器
+        cameraSpeed = Tools.calculateSpeed((float)bpm);
         sound = Gdx.audio.newSound(Gdx.files.internal("kick.wav"));
         shader = new ShaderProgram(Gdx.files.internal("shaders/vertex.glsl").readString(),
             Gdx.files.internal("shaders/fragment.glsl").readString());
@@ -104,8 +94,6 @@ public class ADOFAI extends ApplicationAdapter {
         parameter.characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789][_!$%#@|\\/?-+=()*&.;:,{}\"´`'<>正在计算，进度创建轨道中";
         font = new FreeTypeFontGenerator(Gdx.files.internal("SourceHanSansSC-Normal.otf")).generateFont(parameter);
         hudBatch = new SpriteBatch();
-
-        /*getSpeedThread.start();*/
 
         camera.zoom = 5f;
         bluePlanet = new Planet(Color.BLUE);
@@ -128,7 +116,8 @@ public class ADOFAI extends ApplicationAdapter {
 
     @Override
     public void render() {
-        ScreenUtils.clear(Color.GRAY);
+        timer += Gdx.graphics.getDeltaTime();
+        ScreenUtils.clear(Color.BLACK);
         shader.bind();
         updateFPS();
         StringBuilder stringBuilder = new StringBuilder();
@@ -159,6 +148,7 @@ public class ADOFAI extends ApplicationAdapter {
         if (showBPM) {
             stringBuilder.append("当前BPM: ").append(bpm).append("\n");
         }
+        stringBuilder.append(String.format("当前轨道: %d/%d\n", currentTileIndex, tiles.size() - 1));
         drawText(stringBuilder.toString(), x, y);
     }
 
@@ -171,13 +161,20 @@ public class ADOFAI extends ApplicationAdapter {
         tiles.clear();
         reverseTiles.clear();
         bpmList.clear();
-        speedList = null;
     }
 
     //endregion
     //region 方法体
-    public ADOFAI(String levelPath, boolean dynamicCameraSpeed, boolean showBPM) throws LevelNotFoundException {
-        level = Level.readLevelFile(levelPath);
+    public ADOFAI(Level level, boolean dynamicCameraSpeed, boolean showBPM) {
+        this.level = level;
+        new Thread(() -> {
+            try {
+                bpmList = LevelUtils.getNoteTimes(level);
+                AudioMerger.export(Tools.getOrExportResources("kick.wav"), bpmList, level.getCurrentLevelDir() + File.separator + "HitSounds.wav");
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        }).start();
         this.dynamicCameraSpeed = dynamicCameraSpeed;
         this.showBPM = showBPM;
     }
@@ -198,11 +195,28 @@ public class ADOFAI extends ApplicationAdapter {
             elapsedTime = 0;
         }
     }
+/*
+    private void calculateBPM() {
+        double bpm = level.getBPM();
+        speedList = new double[level.getCharts().size()];
+        List<JSONObject> events = level.getAllEvents("SetSpeed");
+        for (int i = 0; i < level.getCharts().size(); i++) {
+            for (JSONObject event : events) {
+                if (event.getIntValue("floor") == i && event.get("speedType").equals("Multiplier")) {
+                    bpm *= event.getDoubleValue("bpmMultiplier");
+                } else {
+                    bpm = event.getDoubleValue("beatsPerMinute");
+                }
+            }
+            getSpeedProgress = String.format("计算速度中,当前：%d/%d", i, level.getCharts().size());
+            speedList[i] = bpm;
+        }
+    }*/
 
     private void generateConnectedTiles() {
         generateTilesThread = new Thread(() -> {
             try {
-                bpmList = LevelUtils.getNoteTimes(level);
+                if (bpmList.isEmpty()) bpmList = LevelUtils.getNoteTimes(level);
                 if (!tiles.isEmpty()) return;
                 final List<Float> angles = level.getCharts();
                 Float[] anglesArray = angles.toArray(new Float[0]);
@@ -215,19 +229,21 @@ public class ADOFAI extends ApplicationAdapter {
                     }
                 }
                 Vector2 startPos = new Vector2(Tools.getScreenCenter());
+                List<JSONObject> jsonObjects = level.getAllEvents("PositionTrack");
                 for (int i = 0; i <= anglesArray.length; i++) {
                     float angle1 = (i == anglesArray.length) ?
                         anglesArray[i - 1] :
                         anglesArray[i];
                     float angle2 = (i == 0) ? 0 : anglesArray[i - 1];
                     Vector2 pos = new Vector2(Tile.length * 2 * MathUtils.cosDeg(angle1), Tile.length * 2 * MathUtils.sinDeg(angle1));
-                    /*if (level.hasEvent(i, PositionTrack.class.getSimpleName())) {
-                        JSONObject jsonObject = level.getEvents(i, PositionTrack.class.getSimpleName()).get(0);
-                        if (jsonObject.has("positionOffset") && !jsonObject.getBoolean("editorOnly")) {
-                            Vector2 position = new Vector2((float) jsonObject.getJSONArray("positionOffset").getDouble(0), (float) jsonObject.getJSONArray("positionOffset").getDouble(1));
-                            startPos.add(position.x * Tile.length * 2, position.y * Tile.length * 2);
+                    if (anglesArray.length < 100_0000) {
+                        for (JSONObject jsonObject : jsonObjects) {
+                            if (jsonObject.getIntValue("floor") == i && jsonObject.containsKey("positionOffset") && !jsonObject.getBoolean("editorOnly")) {
+                                Vector2 position = new Vector2(jsonObject.getJSONArray("positionOffset").getFloatValue(0), jsonObject.getJSONArray("positionOffset").getFloatValue(1));
+                                startPos.add(position.x * Tile.length * 2, position.y * Tile.length * 2);
+                            }
                         }
-                    }*/
+                    }
                     Tile tile = new Tile(angle1, angle2 - 180, new Vector2(startPos));
                     if (i == angles.size()) {
                         tile.setIsMidspin(false);
@@ -277,30 +293,29 @@ public class ADOFAI extends ApplicationAdapter {
                 musics.add(hitSound);
             }
 
+            Music music = null;
             try {
-                new Thread(() -> {
-                    if (level.getMusicPath() != null) {
-                        Music music = Gdx.audio.newMusic(Gdx.files.absolute(level.getMusicPath()));
-                        musics.add(music);
-                        music.play();
-                    }
-                }).start();
+                music = Gdx.audio.newMusic(Gdx.files.absolute(level.getMusicPath()));
             } catch (Exception e) {
                 Tools.log(new UnsupportedEncodingException("不支持或无效的音乐").initCause(e));
             }
+            Music finalMusic = music;
+            new Thread(() -> {
+                musics.add(finalMusic);
+                if (finalMusic != null) {
+                    finalMusic.play();
+                }
+            }).start();
             final var h = hitSound;
             if (!Tools.isAndroid()) {
-                hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 10, new Runnable() {
-                    @Override
-                    public void run() {
-                        if (h != null) {
-                            h.play();
-                        }
+                hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 50, () -> {
+                    if (h != null) {
+                        h.play();
                     }
                 }, 0));
                 hitsoundThread.start();
             }
-            gameThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 10, this::start, 0));
+            gameThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 50, this::start, 0));
             gameThread.start();
             isStarted = true;
         } else if (Gdx.input.isKeyPressed(Keys.R)) {
@@ -314,7 +329,6 @@ public class ADOFAI extends ApplicationAdapter {
 
     public void start() {
         try {
-
             currentTile = tiles.get(0);
             double start = Tools.currentTime();
             int events = 0;
@@ -329,7 +343,8 @@ public class ADOFAI extends ApplicationAdapter {
                     events++;
                 }
             }
-        } catch (IndexOutOfBoundsException | NullPointerException ignored) {}
+        } catch (IndexOutOfBoundsException | NullPointerException ignored) {
+        }
     }
 
     public void restart() throws InterruptedException {
@@ -370,23 +385,26 @@ public class ADOFAI extends ApplicationAdapter {
         if (currentTileIndex >= 2 && currentTile.getPrevTile() != null && currentTile.getPrevTile().getPrevTile() != null) {
             currentTile.getPrevTile().getPrevTile().setHitEd(true);
         }
-        if (Tools.isAndroid()) {
-            sound.play();
-        }
 
-        if (dynamicCameraSpeed || showBPM) {
-            if (level.hasEvent(currentTileIndex, "SetSpeed")) {
-                var event = level.getEvents(currentTileIndex, "SetSpeed").get(0).toMap();
-                if (event.get("speedType").equals("Multiplier")) {
-                    bpm *= ((Number) event.get("bpmMultiplier")).doubleValue();
-                } else {
-                    bpm = ((Number) event.get("beatsPerMinute")).doubleValue();
+        if (Tools.isAndroid() && fps > 30) {
+            new Thread(() -> {
+                try {
+                    sound.play();
+                } catch (Exception ignored) {
                 }
-                if (dynamicCameraSpeed)
-                    cameraSpeed = Tools.calculateSpeed((float) bpm);
             }
+            ).start();
         }
 
+        if (fps > 90 && (dynamicCameraSpeed || showBPM) && level.hasEvent(currentTileIndex, "SetSpeed")) {
+            var event = level.getEvents(currentTileIndex, "SetSpeed").get(0);
+            if (event.get("speedType").equals("Multiplier")) {
+                bpm *= event.getDoubleValue("bpmMultiplier");
+            } else {
+                bpm = event.getDoubleValue("beatsPerMinute");
+            }
+            if (dynamicCameraSpeed) cameraSpeed = Tools.calculateSpeed((float) bpm);
+        }
         bluePlanet.move(currentTile.getPosition());
     }
     //endregion

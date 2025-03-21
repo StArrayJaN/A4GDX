@@ -70,16 +70,9 @@ public class Lwjgl3Launcher extends JFrame {
         startButton.addActionListener(e -> {
             try {
                 Level level = Level.readLevelFile(levelPath.getText());
-                new Thread(() -> {
-                    try {
-                        AudioMerger.export(getOrExportResources("kick.wav"), LevelUtils.getNoteTimes(level), level.getCurrentLevelDir() + File.separator + "HitSounds.wav");
-                    } catch (Exception ex) {
-                        throw new RuntimeException(ex);
-                    }
-                }).start();
-                new Lwjgl3Application(new ADOFAI(levelPath.getText(),
-                    Boolean.parseBoolean(lastOpenManager.getData("showBPM", "false")),
-                    Boolean.parseBoolean(lastOpenManager.getData("dynamicCameraSpeed", "false"))), getDefaultConfiguration());
+                new Lwjgl3Application(new ADOFAI(level,
+                    Boolean.parseBoolean(lastOpenManager.getData("dynamicCameraSpeed", "false")),
+                    Boolean.parseBoolean(lastOpenManager.getData("showBPM", "false"))), getDefaultConfiguration());
             } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(null, "发生错误\n" + Tools.getStackTrace(ex));
@@ -121,19 +114,6 @@ public class Lwjgl3Launcher extends JFrame {
         setVisible(true);
     }
 
-    public static String getRuntimePath() {
-        String path = Lwjgl3Launcher.class.getResource(Lwjgl3Launcher.class.getSimpleName() + ".class").getPath();
-        return new File(path.split("!")[0].replace("file:/", "")).getParent();
-    }
-
-    public static String getOrExportResources(String path) throws IOException {
-        String runtimePath = getRuntimePath();
-        File file = new File(runtimePath, path);
-        if (!file.exists()) {
-            Files.write(file.toPath(), Lwjgl3Launcher.class.getResourceAsStream("/" + path).readAllBytes());
-        }
-        return file.getAbsolutePath();
-    }
 
     private static Lwjgl3ApplicationConfiguration getDefaultConfiguration() {
         Lwjgl3ApplicationConfiguration configuration = new Lwjgl3ApplicationConfiguration();

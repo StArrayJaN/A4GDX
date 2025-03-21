@@ -8,6 +8,7 @@ import com.badlogic.gdx.math.Vector2;
 import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.util.Objects;
 
 public class Tools {
@@ -21,13 +22,28 @@ public class Tools {
 
     public static float calculateSpeed(float bpm) {
         if (bpm > 7200) {
-            return 1.0f; // 超过15000直接返回最大速度
+            return 0.99f; // 超过15000直接返回最大速度
         } else {
             // 将bpm映射到0.01~1.0之间
             float speed = (0.01f + (bpm / 7200) * 0.99f);
             // 确保速度不低于最小值0.01
             return Math.max(0.01f, speed);
         }
+    }
+
+    public static String getOrExportResources(String path) throws IOException {
+        String runtimePath = getRuntimePath();
+        File file = new File(runtimePath, path);
+        if (!file.exists()) {
+            Files.write(file.toPath(), Tools.class.getResourceAsStream("/" + path).readAllBytes());
+        }
+        return file.getAbsolutePath();
+    }
+
+
+    public static String getRuntimePath() {
+        String path = Objects.requireNonNull(Tools.class.getResource(Tools.class.getSimpleName() + ".class")).getPath();
+        return new File(path.split("!")[0].replace("file:/", "")).getParent();
     }
 
     public static double currentTime() {
@@ -37,7 +53,7 @@ public class Tools {
     public static void sleepRun(double ms, Runnable runnable, double offset) {
         double currentTime = currentTime();
         while (true) {
-            if (currentTime + ms < currentTime() + offset) {
+            if (currentTime + ms + offset < currentTime()) {
                 runnable.run();
                 break;
             }

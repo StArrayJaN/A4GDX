@@ -89,6 +89,7 @@ public class Tile {
     }
 
     public void render(ShaderProgram shader) {
+        shader.setUniformf("u_color", Color.valueOf("#debb7b"));
         shader.setUniformMatrix("u_model", new Matrix4().translate(position.x, position.y, 0));
         shader.setUniformf("u_alpha", alpha);
         mesh.render(shader, GL20.GL_TRIANGLES);
@@ -129,15 +130,15 @@ public class Tile {
     }
 
     private Mesh CreateTileMesh(float length, float width) {
+        List<Vector3> vertices = new ArrayList<>();
+        List<Integer> triangles = new ArrayList<>();
+        List<Color> colors = new ArrayList<>();
+
+        //region 基础处理
         float m11 = (float)Math.cos(startAngle / 180f * (float)Math.PI);
         float m12 = (float)Math.sin(startAngle / 180f * (float)Math.PI);
         float m21 = (float)Math.cos(endAngle / 180f * (float)Math.PI);
         float m22 = (float)Math.sin(endAngle / 180f * (float)Math.PI);
-
-        List<Vector3> vertices = new ArrayList<>();
-        List<Integer> triangles = new ArrayList<>();
-        List<Color> colors = new ArrayList<Color>();
-
         float[] a = new float[2];
 
         if (Game.fmod(startAngle - endAngle, 360f) >= Game.fmod(endAngle - startAngle, 360f)) {
@@ -149,7 +150,9 @@ public class Tile {
         }
         float angle = a[1] - a[0];
         float mid = a[0] + angle / 2f;
+        //endregion
         if (angle < 2.0943952f && angle > 0) {
+            //region 角度小于2.0943952
             float x;
             if (angle < 0.08726646f) {
                 x = 1f;
@@ -225,6 +228,8 @@ public class Tile {
                 triangles.add(count + 4);
                 for (int i = 0; i < 8; i++) colors.add(Color.BLACK);
             }
+            //endregion
+            //region 边框
             width -= outline * 2f;
             length -= outline * 2f;
             radius -= outline * 2f;
@@ -281,8 +286,9 @@ public class Tile {
                 triangles.add(count + 4);
                 for (int i = 0; i < 8; i++) colors.add(Color.WHITE);
             }
-
+            //endregion
         } else if (angle > 0) {
+            //region 正常情况
             width += outline;
             length += outline;
 
@@ -328,7 +334,8 @@ public class Tile {
                 triangles.add(count + 4);
                 for (int i = 0; i < 8; i++) colors.add(Color.BLACK);
             }
-
+            //endregion
+            //region 边框
             width -= outline * 2f;
             length -= outline * 2f;
 
@@ -374,7 +381,9 @@ public class Tile {
                 triangles.add(count + 4);
                 for (int i = 0; i < 8; i++) colors.add(Color.WHITE);
             }
+            //endregion
         } else {
+            //region 如果角度差为180度，则绘制一个半圆（主体）
             length = width;
             width += outline;
             length += outline;
@@ -397,14 +406,11 @@ public class Tile {
                 triangles.add(count);
                 for (int i = 0; i < 4; i++) colors.add(Color.BLACK);
             }
-
+            //endregion
+            //region 边框
             width -= outline * 2f;
             length -= outline * 2f;
-
-
             Game.CreateCircle(midpoint, width, Color.WHITE, vertices, triangles, colors, 0);
-
-
             {
                 int count = vertices.size();
                 vertices.add(new Vector3(midpoint).add(new Vector3((length) * m11 + (width) * m12, (length) * m12 - (width) * m11, 0)));
@@ -420,6 +426,7 @@ public class Tile {
                 triangles.add(count);
                 for (int i = 0; i < 4; i++) colors.add(Color.WHITE);
             }
+            //endregion
         }
         FloatArray vertexData = new FloatArray();
         for (int i = 0; i < vertices.size(); i++) {
@@ -433,7 +440,6 @@ public class Tile {
                              new VertexAttribute(VertexAttributes.Usage.ColorPacked, 4, "a_color")
                              //new VertexAttribute(VertexAttributes.Usage.TextureCoordinates, 2, "a_texCoord") // 新增UV
                              );
-        //Log.e("顶点数据",String.format("vertices:%d,indices:%d",vertices.size(),triangles.size()));
         mesh.setVertices(vertexData.items);
 
         short[] intArray = new short[triangles.size()];
@@ -450,6 +456,7 @@ public class Tile {
         float m1 = MathUtils.cos(a1 / 180f * MathUtils.PI);
         float m2 = MathUtils.sin(a1 / 180f * MathUtils.PI);
 
+        //region 主体
         List<Vector3> vertices = new ArrayList<>();
         List<Integer> triangles = new ArrayList<>();
         List<Color> colors = new ArrayList<>();
@@ -476,6 +483,8 @@ public class Tile {
             triangles.add(count + 6);
             for (int i = 0; i < 7; i++) colors.add(Color.BLACK);
         }
+        //endregion
+        //region 边框
         width -= outline * 2;
         length -= outline * 2;
         {
@@ -498,6 +507,7 @@ public class Tile {
             triangles.add(count + 6);
             for (int i = 0; i < 7; i++) colors.add(Color.WHITE);
         }
+        //endregion
 
         FloatArray vertexData = new FloatArray();
         for (int i = 0; i < vertices.size(); i++) {

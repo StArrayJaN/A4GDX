@@ -60,7 +60,7 @@ tasks.register('runJar', JavaExec) {
   dependsOn(jar)
   mainClass = project.mainClassName
   classpath = files(jar.archivePath)
-  jvmArgs("-Xms4096M")
+  jvmArgs("-Xms4G", "-Xmx16G")
 }
 jar {
 // sets the name of the .jar file this produces to the name of the game or app, with the version after.

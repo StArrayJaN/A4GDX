@@ -7,7 +7,7 @@ attribute vec3 a_position;
     varying vec4 v_color;
 
     void main() {
-        v_color = a_color;
+        v_color = a_color * u_color;
         // 全局透明度应用到整个Mesh
         v_color.a *= u_alpha;
         gl_Position = u_proj * u_model * vec4(a_position, 1.0);

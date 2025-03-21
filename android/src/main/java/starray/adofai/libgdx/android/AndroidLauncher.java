@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ToggleButton;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -32,15 +33,25 @@ import java.nio.file.Files;
  */
 public class AndroidLauncher extends AppCompatActivity {
     EditText editText;
+    ToggleButton showBPM;
+    ToggleButton dynamicCameraSpeed;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
+
         setSupportActionBar(findViewById(R.id.toolbar));
         editText = findViewById(R.id.filePath);
         Button button = findViewById(R.id.run);
         Button selectFile = findViewById(R.id.selectFile);
+        showBPM = findViewById(R.id.showBPM);
+        dynamicCameraSpeed = findViewById(R.id.dynamicCameraSpeed);
+
+        SharedDataManager sharedDataManager = SharedDataManager.getInstance(this);
+        editText.setText(sharedDataManager.getData("lastPath",""));
+        showBPM.setChecked(sharedDataManager.getBoolData("showBPM", false));
+        dynamicCameraSpeed.setChecked(sharedDataManager.getBoolData("dynamicCameraSpeed", false));
         selectFile.setOnClickListener((arg0) -> {
             FileSelector.setActivity(this);
             FileSelector.selectFile("*/*");
@@ -81,6 +92,8 @@ public class AndroidLauncher extends AppCompatActivity {
         }
         Intent intent = new Intent(this, GameActivity.class);
         intent.putExtra("path", path);
+        intent.putExtra("showBPM", showBPM.isChecked());
+        intent.putExtra("dynamicCameraSpeed", dynamicCameraSpeed.isChecked());
         startActivity(intent);
     }
 

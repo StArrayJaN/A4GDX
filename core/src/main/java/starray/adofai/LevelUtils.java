@@ -1,8 +1,8 @@
 package starray.adofai;;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import starray.adofai.libgdx.Tools;
 
 import javax.swing.*;
@@ -19,7 +19,7 @@ public class LevelUtils {
         void onProcessChange(String message, int progress);
     }
 
-    public static List<Double> getNoteTimes(Level l) throws JSONException {
+    public static List<Double> getNoteTimes(Level l)  {
         List<Float> angleDataList = l.getCharts();
         JSONArray levelEvents = l.events;
         //对带有变速和旋转的中旋进行处理
@@ -27,10 +27,10 @@ public class LevelUtils {
             if (angleDataList.get(i) == 999) {
                 if (l.hasEvent(i, "SetSpeed")) {
                     JSONObject a = levelEvents.getJSONObject(l.getEventIndex(i, "SetSpeed"));
-                    a.put("floor", a.getInt("floor") + 1);
+                    a.put("floor", a.getIntValue("floor") + 1);
                 } else if (l.hasEvent(i, "Twirl")) {
                     JSONObject a = levelEvents.getJSONObject(l.getEventIndex(i, "Twirl"));
-                    a.put("floor", a.getInt("floor") + 1);
+                    a.put("floor", a.getIntValue("floor") + 1);
                 }
             }
         }
@@ -50,7 +50,7 @@ public class LevelUtils {
                 midrCount++;
                 JSONObject temp = parsedChart.getJSONObject(i - midrCount);
                 temp.put("midr", "true");
-                parsedChart.put(i - midrCount, temp);
+                parsedChart.set(i - midrCount, temp);
                 midrId.add(i - 1);
             } else {
                 //一般轨道
@@ -62,7 +62,7 @@ public class LevelUtils {
                 temp.put("extraHold", 0);
                 temp.put("midr", "false");
                 temp.put("MultiPlanet", "-1");
-                parsedChart.put(i - midrCount, temp);
+                parsedChart.add(i - midrCount, temp);
             }
 
         }
@@ -80,16 +80,16 @@ public class LevelUtils {
         temp.put("extraHold", 0);
         temp.put("midr", "false");
         temp.put("MultiPlanet", "-1");
-        parsedChart.put(parsedChart.length(), temp);
+        parsedChart.add(parsedChart.size(), temp);
 
         double bpm = l.getBPM();
         double pitch = l.getPitch() / 100;
 
         boolean a = true;
         //根据轨道事件修改json节点
-        for (int i = 0; i < levelEvents.length(); i++) {
+        for (int i = 0; i < levelEvents.size(); i++) {
             JSONObject o = levelEvents.getJSONObject(i);
-            int tile = o.getInt("floor");
+            int tile = o.getIntValue("floor");
             String event = o.get("eventType").toString();
             //upperBound用于获取轨道数量和事件数量的差异;
             tile -= upperBound(midrId.toArray(new Integer[0]), tile);
@@ -104,25 +104,25 @@ public class LevelUtils {
                 }
                 //  System.out.println(bpm + new Boolean(a).toString());
                 ob.put("bpm", bpm);
-                parsedChart.put(tile, ob);
+                parsedChart.set(tile, ob);
             }
             //旋转
             if (event.equals("Twirl")) {
                 JSONObject ob = parsedChart.getJSONObject(tile);
                 ob.put("direction", -1);
-                parsedChart.put(tile, ob);
+                parsedChart.set(tile, ob);
             }
             //暂停
             if (event.equals("Pause")) {
                 JSONObject ob = parsedChart.getJSONObject(tile);
                 ob.put("extraHold", o.getDouble("duration") / 2);
-                parsedChart.put(tile, ob);
+                parsedChart.set(tile, ob);
             }
             //长按
             if (event.equals("Hold")) {
                 JSONObject ob = parsedChart.getJSONObject(tile);
                 ob.put("extraHold", o.getDouble("duration"));
-                parsedChart.put(tile, ob);
+                parsedChart.set(tile, ob);
             }
             /* Huihui start */
             //三球
@@ -133,7 +133,7 @@ public class LevelUtils {
                 } else {
                     ob.put("MultiPlanet", "0");
                 }
-                parsedChart.put(tile, ob);
+                parsedChart.set(tile, ob);
             }
             /* Huihui  end  */
         }
@@ -144,9 +144,9 @@ public class LevelUtils {
 
         double BPM = l.getBPM() * pitch;
         int direction = 1;
-        for (int i = 0; i < parsedChart.length(); i++) {
+        for (int i = 0; i < parsedChart.size(); i++) {
             //旋转处理
-            if (parsedChart.getJSONObject(i).getInt("direction") == -1) {
+            if (parsedChart.getJSONObject(i).getIntValue("direction") == -1) {
                 direction = -direction;
             }
             JSONObject ob = parsedChart.getJSONObject(i);
@@ -155,7 +155,7 @@ public class LevelUtils {
             if (parsedChart.getJSONObject(i).get("bpm").equals("unSet")) {
                 ob.put("bpm", BPM);
             } else {
-                BPM = (float) ob.getDouble("bpm");
+                BPM = ob.getFloatValue("bpm");
             }
         }
 
@@ -174,18 +174,18 @@ public class LevelUtils {
             boolean isMultiPlanet = false;
             /* Huihui  end  */
 
-            for (int i = 0; i < parsedChart.length(); i++) {
+            for (int i = 0; i < parsedChart.size(); i++) {
                 JSONObject o = parsedChart.getJSONObject(i);
                 //设置角度
                 curAngle = fmod(curAngle - 180, 360);
-                curBPM = (float) o.getDouble("bpm");
+                curBPM = o.getDouble("bpm");
                 double destAngle = o.getDouble("angle");
                 double pAngle = 0;
                 if (Math.abs(destAngle - curAngle) <= 0.001) {
                     //(疑似)取整
                     pAngle = 360;
                 } else {
-                    pAngle = fmod((curAngle - destAngle) * o.getInt("direction"), 360);
+                    pAngle = fmod((curAngle - destAngle) * o.getIntValue("direction"), 360);
                 }
                 pAngle += o.getDouble("extraHold") * 360;
 
@@ -368,7 +368,7 @@ public class LevelUtils {
         }
     }
 */
-    public static List<Double> genericDelayTable(Double[] bpmList) throws JSONException {
+    public static List<Double> genericDelayTable(Double[] bpmList) {
         List<Double> delayTable = new ArrayList<>();
         double start = Tools.currentTime();
         int events = 1;
@@ -382,7 +382,7 @@ public class LevelUtils {
         return delayTable;
     }
 
-    private static void removeEffects(Level l) throws JSONException {
+    private static void removeEffects(Level l)  {
         String[] effectEvents = {
                 "MoveCamera",
                 "MoveTrack",
@@ -405,7 +405,7 @@ public class LevelUtils {
         }
     }
 
-    public static void convertToOld(Level level) throws JSONException {
+    public static void convertToOld(Level level) {
         String[] removeSettings = {"speedTrialAim",
                 "trackTexture",
                 "trackTextureScale",
@@ -437,7 +437,7 @@ public class LevelUtils {
         for (int i = 0; i < newSettingValue.length; i++) {
             if (level.hasSetting(newSettingValue[i])) {
                 if (newSettingValue[i].equals("scalingRatio")) {
-                    level.setLevelSetting("unscaledSize", level.settings.getInt("scalingRatio"));
+                    level.setLevelSetting("unscaledSize", level.settings.getIntValue("scalingRatio"));
                 }
                 if (!newSettingValue[i].equals("scalingRatio") && level.getSetting(newSettingValue[i]).equals(true)) {
                     level.setLevelSetting(newSettingValue[i], ntrue);
@@ -454,7 +454,7 @@ public class LevelUtils {
             level.removeLevelSetting(reomveSetting);
         }
 
-        for (int i = 0; i < level.events.length(); ++i) {
+        for (int i = 0; i < level.events.size(); ++i) {
             JSONObject o = level.events.getJSONObject(i);
             for (String key : o.keySet()) {
                 try {
@@ -471,7 +471,7 @@ public class LevelUtils {
             }
         }
 
-        for (int i = 0; i < level.decorations.length(); ++i) {
+        for (int i = 0; i < level.decorations.size(); ++i) {
             JSONObject o = level.decorations.getJSONObject(i);
             for (String key : o.keySet()) {
                 try {

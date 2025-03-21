@@ -20,11 +20,17 @@ public class GameActivity extends AndroidApplication {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        SharedDataManager sharedDataManager = SharedDataManager.getInstance(this);
         String path = getIntent().getStringExtra("path");
         try {
             AndroidApplicationConfiguration configuration = new AndroidApplicationConfiguration();
             configuration.useImmersiveMode = true; // Recommended, but not required.
-            initialize(new ADOFAI(path,false,false), configuration);
+            sharedDataManager.putData("lastPath", path);
+            sharedDataManager.putBoolData("dynamicCameraSpeed",getIntent().getBooleanExtra("dynamicCameraSpeed",false));
+            sharedDataManager.putBoolData("showBPM", getIntent().getBooleanExtra("showBPM",false));
+            initialize(new ADOFAI(Level.readLevelFile(path),
+                getIntent().getBooleanExtra("dynamicCameraSpeed",false),
+                getIntent().getBooleanExtra("showBPM",false)), configuration);
         } catch (Exception e) {
             AlertDialog alertDialog = new AlertDialog.Builder(this)
                 .setMessage(Tools.getStackTrace(e))

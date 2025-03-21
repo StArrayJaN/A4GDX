@@ -14,9 +14,10 @@ import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONException;
+import com.alibaba.fastjson2.JSONObject;
 import starray.adofai.libgdx.SimpleCallback;
 
 @SuppressWarnings("All")
@@ -33,11 +34,11 @@ public class Level {
         return angle < 0 ? angle + 360 : angle;
     }
 
-    public Level(JSONObject level) throws JSONException {
+    public Level(JSONObject level) {
         this.level = level;
         this.settings = level.getJSONObject("settings");
         this.events = level.getJSONArray("actions");
-        if (settings.getInt("version") >= 10) {
+        if (settings.getIntValue("version") >= 10) {
             this.decorations = level.getJSONArray("decorations");
         }
     }
@@ -62,7 +63,7 @@ public class Level {
         int i = content.indexOf("{");
         String newJSONStr = content.substring(i);
         try {
-            new JSONObject(newJSONStr);
+            JSONObject.parse(newJSONStr);
         } catch (Exception e) {
             if (e instanceof JSONException) {
                 String str = e.getMessage();
@@ -83,7 +84,7 @@ public class Level {
                 newJSONStr = sb.toString();
             }
         }
-        Level level = new Level(new JSONObject(newJSONStr));
+        Level level = new Level(JSONObject.parse(newJSONStr));
         level.currentLevelFile = filePath;
         level.currenttLevelDir = new File(filePath).getParent();
         return level;
@@ -92,8 +93,8 @@ public class Level {
     public JSONObject toJSONObject() {
         JSONArray jsonArray = new JSONArray(getCharts());
         level.put("angleData", jsonArray);
-        level.put("settings", settings.toString(2));
-        if (settings.getInt("version") >= 10) {
+        level.put("settings", JSONObject.toJSONString(settings));
+        if (settings.getIntValue("version") >= 10) {
             level.put("decorations", decorations);
         }
         return level;
@@ -138,7 +139,7 @@ public class Level {
             return chartArray;
         }
 
-        for (int i = 0; i < charts.length(); i++) {
+        for (int i = 0; i < charts.size(); i++) {
             float chart = Float.parseFloat(charts.get(i).toString());
             chartArray.add(chart);
         }
@@ -150,7 +151,7 @@ public class Level {
     }
 
     public int getOffset() throws JSONException {
-        return settings.getInt("offset");
+        return settings.getIntValue("offset");
     }
 
     public String getMusicPath() {
@@ -163,11 +164,7 @@ public class Level {
     }
 
     public float getPitch() throws JSONException {
-        return settings.getInt("pitch");
-    }
-
-    public int getCountDownTicks() throws JSONException {
-        return settings.getInt("countdownTicks");
+        return settings.getIntValue("pitch");
     }
 
     public Object getSetting(String setting) throws JSONException {
@@ -191,68 +188,17 @@ public class Level {
         }
     }
 
-    public Double[] bpmMultiplierToBPM(List<String[]> bpmList) throws JSONException {
-        double bpm = getBPM();
-        Double newbpmList[] = new Double[bpmList.size()];
-        for (int i = 0; i < bpmList.size(); i++) {
-            double value = Double.parseDouble(bpmList.get(i)[2]);
-            if (bpmList.get(i)[1] == "true") {
-                newbpmList[i] = bpm * value;
-                bpm = bpm * value;
-            } else {
-                newbpmList[i] = value;
-                bpm = value;
-            }
-        }
-        return newbpmList;
-    }
-
-    public List<String[]> getAllSpeed() throws JSONException {
-        List<String[]> speed = new ArrayList<>();
-        for (int i = 0; i < getCharts().size(); i++) {
-            if (getSpeed(i) != null) {
-                speed.add(new String[]{String.valueOf(i), getSpeed(i)[0], getSpeed(i)[1]});
-            }
-        }
-        return speed;
-    }
-
     public double[] getSpeedList(SimpleCallback simpleCallback) throws JSONException, InterruptedException, ExecutionException {
         double bpm = getBPM();
         int chartSize = getCharts().size();
         double[] speedList = new double[chartSize];
-        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
-        List<Future<Double>> futures = new ArrayList<>();
-
-        for (int i = 0; i < chartSize; i++) {
-            final int index = i;
-            futures.add(executor.submit(() -> {
-                simpleCallback.call(new Class[]{String.class}, String.format("进度:%d/%d", index, chartSize));
-                var events = getEvents(index, "SetSpeed");
-                double currentBpm = bpm;
-                for (JSONObject jsonObject : events) {
-                    if (jsonObject.getString("speedType").equals("Multiplier")) {
-                        currentBpm *= jsonObject.getDouble("bpmMultiplier");
-                    } else {
-                        currentBpm = jsonObject.getDouble("beatsPerMinute");
-                    }
-                }
-                return currentBpm;
-            }));
-        }
-
-        for (int i = 0; i < chartSize; i++) {
-            speedList[i] = futures.get(i).get();
-        }
-
-        executor.shutdown();
         return speedList;
     }
 
     public String[] getSpeed(int chart) throws JSONException {
         JSONObject event;
-        for (int a = 0; a < events.length(); a++) {
+        for (int a = 0; a < events.size(); a++) {
             event = (JSONObject) events.get(a);
             if ((int) event.get("floor") == chart && event.get("eventType").equals("SetSpeed")) {
                 String isMultiplier = "false";
@@ -267,22 +213,22 @@ public class Level {
         return null;
     }
 
-    public List<JSONObject> getEvents(String name) {
-        List<JSONObject> positionCharts = new ArrayList<>();
-        for (int i = 0; i < events.length(); i++) {
-            if (events.getJSONObject(i).get("eventType").equals(name)) {
-                positionCharts.add(events.getJSONObject(i));
+    public List<JSONObject> getAllEvents(String event) throws JSONException {
+        List<JSONObject> eventList = new ArrayList<>();
+        for (int i = 0; i < events.size(); i++) {
+            if (events.getJSONObject(i).get("eventType").equals(event)) {
+            eventList.add(events.getJSONObject(i));
             }
         }
-        return positionCharts;
+        return eventList;
     }
 
     public List<JSONObject> getChartEvents(int chart) throws JSONException {
         JSONObject eventObject;
         List<JSONObject> chartEvents = new ArrayList<>();
-        for (int a = 0; a < events.length(); a++) {
+        for (int a = 0; a < events.size(); a++) {
             eventObject = (JSONObject) events.get(a);
-            if (eventObject.getInt("floor") == chart) {
+            if (eventObject.getIntValue("floor") == chart) {
                 chartEvents.add(eventObject);
             }
         }
@@ -303,7 +249,7 @@ public class Level {
 
     public boolean hasEvent(int chart, String event) throws JSONException {
         JSONObject eventObject;
-        for (int a = 0; a < events.length(); a++) {
+        for (int a = 0; a < events.size(); a++) {
             eventObject = events.getJSONObject(a);
             if ((int) eventObject.get("floor") == chart && eventObject.get("eventType").equals(event)) {
                 return true;
@@ -315,7 +261,7 @@ public class Level {
     public void removeAllEvent(String event, boolean isDecoration) throws JSONException {
         JSONObject eventObject;
         if (isDecoration) {
-            for (int i = 0; i < decorations.length(); i++) {
+            for (int i = 0; i < decorations.size(); i++) {
                 eventObject = (JSONObject) decorations.get(i);
                 if (eventObject.get("eventType").equals(event)) {
                     decorations.remove(i);
@@ -323,7 +269,7 @@ public class Level {
                 }
             }
         } else {
-            for (int i = 0; i < events.length(); i++) {
+            for (int i = 0; i < events.size(); i++) {
                 eventObject = (JSONObject) events.get(i);
                 if (eventObject.get("eventType").equals(event)) {
                     events.remove(i);
@@ -335,9 +281,9 @@ public class Level {
 
     public int getEventIndex(int chart, String event) {
         JSONObject eventObject;
-        for (int a = 0; a < events.length(); a++) {
+        for (int a = 0; a < events.size(); a++) {
             eventObject = events.getJSONObject(a);
-            if (eventObject.getInt("floor") == chart && eventObject.get("eventType").equals(event)) {
+            if (eventObject.getIntValue("floor") == chart && eventObject.get("eventType").equals(event)) {
                 return a;
             }
         }
@@ -354,13 +300,13 @@ public class Level {
 
     public static void writeJSONToFile(JSONObject JSONString, File filePath) throws IOException, JSONException {
         FileWriter writer = new FileWriter(filePath);
-        writer.write(JSONString.toString(2));
+        writer.write(JSONString.toString());
         writer.close();
     }
 
     public static void writeJSONToFile(JSONArray JSONString, File filePath) throws IOException, JSONException {
         FileWriter writer = new FileWriter(filePath);
-        writer.write(JSONString.toString(3));
+        writer.write(JSONString.toString());
         writer.close();
     }
 

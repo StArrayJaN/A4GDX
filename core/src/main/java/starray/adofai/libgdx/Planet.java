@@ -45,10 +45,12 @@ public class Planet {
     }
 
     public void render(){
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setProjectionMatrix(ADOFAI.camera.combined);
-        shapeRenderer.setColor(color);
-        shapeRenderer.circle(position.x, position.y, Tile.width);
-        shapeRenderer.end();
+        if (position != null) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setProjectionMatrix(ADOFAI.camera.combined);
+            shapeRenderer.setColor(color);
+            shapeRenderer.circle(position.x, position.y, Tile.width);
+            shapeRenderer.end();
+        }
     }
 }

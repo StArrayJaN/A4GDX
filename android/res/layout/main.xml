@@ -41,6 +41,30 @@
                 android:text="选择文件"/>
     </LinearLayout>
 
+    <LinearLayout
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:padding="15dp"
+            android:layout_gravity="center"
+            android:orientation="horizontal">
+        <TextView
+                android:layout_width="wrap_content"
+                android:text="显示BPM:"
+                android:layout_height="wrap_content"/>
+        <ToggleButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/showBPM"/>
+        <View android:layout_width="0dp" android:layout_weight="1" android:layout_height="0dp"/>
+        <TextView
+                android:layout_width="wrap_content"
+                android:text="动态摄像机速度:"
+                android:layout_height="wrap_content"/>
+        <ToggleButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/dynamicCameraSpeed"/>
+    </LinearLayout>
     <View
             android:layout_height="148dp"
             android:layout_width="wrap_content"/>
