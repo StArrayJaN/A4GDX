@@ -40,8 +40,8 @@ public class Planet {
         this.position = position;
     }
 
-    public void setSubPlanet(Planet subPlanet) {
-        this.subPlanet = subPlanet;
+    public void setPosition(Vector2 position) {
+        this.position = position;
     }
 
     public void render(){

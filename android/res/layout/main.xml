@@ -50,6 +50,7 @@
         <TextView
                 android:layout_width="wrap_content"
                 android:text="显示BPM:"
+                android:visibility="gone"
                 android:layout_height="wrap_content"/>
         <ToggleButton
                 android:layout_width="wrap_content"
@@ -59,6 +60,7 @@
         <TextView
                 android:layout_width="wrap_content"
                 android:text="动态摄像机速度:"
+                android:visibility="gone"
                 android:layout_height="wrap_content"/>
         <ToggleButton
                 android:layout_width="wrap_content"

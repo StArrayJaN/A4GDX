@@ -46,8 +46,9 @@ public class AndroidLauncher extends AppCompatActivity {
         Button button = findViewById(R.id.run);
         Button selectFile = findViewById(R.id.selectFile);
         showBPM = findViewById(R.id.showBPM);
+        showBPM.setVisibility(View.GONE);
         dynamicCameraSpeed = findViewById(R.id.dynamicCameraSpeed);
-
+        dynamicCameraSpeed.setVisibility(View.GONE);
         SharedDataManager sharedDataManager = SharedDataManager.getInstance(this);
         editText.setText(sharedDataManager.getData("lastPath",""));
         showBPM.setChecked(sharedDataManager.getBoolData("showBPM", false));

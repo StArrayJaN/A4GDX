@@ -106,8 +106,8 @@ public class Lwjgl3Launcher extends JFrame {
         add(levelPath);
         add(selectFile);
         add(startButton);
-        add(showBPM);
-        add(dynamicCameraSpeed);
+        /*add(showBPM);
+        add(dynamicCameraSpeed);*/
 
         pack(); // 自动调整窗口大小以适应组件
         setLocationRelativeTo(null); // 将窗口居中显示

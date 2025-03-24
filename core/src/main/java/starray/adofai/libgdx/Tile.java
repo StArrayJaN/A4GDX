@@ -28,6 +28,10 @@ public class Tile {
     private Tile nextTile;
     private float alpha = 1f;
     private float outline = 2f;
+    public float angle;
+    public float bpm;
+
+    public boolean isCW;
 
     private Texture icon;
     private SpriteBatch sprite;
