@@ -12,6 +12,7 @@ import starray.adofai.libgdx.Tools;
 
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +48,7 @@ public class Lwjgl3Launcher extends JFrame {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         fileChooser.setMultiSelectionEnabled(false);
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("关卡文件", "adofai"));
+        fileChooser.setFileFilter(new FileNameExtensionFilter("关卡文件", "adofai"));
         fileChooser.setCurrentDirectory(new File(lastOpenManager.getLastOpenFile()).getParentFile());
         fileChooser.setDialogTitle("选择关卡文件");
         fileChooser.getActionMap().get("viewTypeDetails").actionPerformed(null);
@@ -70,44 +71,26 @@ public class Lwjgl3Launcher extends JFrame {
         startButton.addActionListener(e -> {
             try {
                 Level level = Level.readLevelFile(levelPath.getText());
-                new Lwjgl3Application(new ADOFAI(level,
-                    Boolean.parseBoolean(lastOpenManager.getData("dynamicCameraSpeed", "false")),
-                    Boolean.parseBoolean(lastOpenManager.getData("showBPM", "false"))), getDefaultConfiguration());
+                new Lwjgl3Application(new ADOFAI(level,lastOpenManager.getBoolean("disablePlanet", false)), getDefaultConfiguration());
             } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(null, "发生错误\n" + Tools.getStackTrace(ex));
             }
         });
 
-        JToggleButton showBPM = new JToggleButton("显示BPM");
-        showBPM.setSelected(Boolean.parseBoolean(lastOpenManager.getData("showBPM", "false")));
-        showBPM.setBounds(150, 50, 100, 30); // 设置按钮的宽度和高度
-        showBPM.addActionListener(e -> {
-            if (showBPM.isSelected()) {
-                lastOpenManager.putData("showBPM", "true");
-            } else {
-                lastOpenManager.putData("showBPM", "false");
-            }
-            lastOpenManager.save();
-        });
-
-        JToggleButton dynamicCameraSpeed = new JToggleButton("动态摄像机速度");
-        dynamicCameraSpeed.setSelected(Boolean.parseBoolean(lastOpenManager.getData("dynamicCameraSpeed", "false")));
-        dynamicCameraSpeed.setBounds(250, 50, 150, 30); // 设置按钮的宽度和高度
-        dynamicCameraSpeed.addActionListener(e -> {
-            if (dynamicCameraSpeed.isSelected()) {
-                lastOpenManager.putData("dynamicCameraSpeed", "true");
-            } else {
-                lastOpenManager.putData("dynamicCameraSpeed", "false");
-            }
+        JToggleButton disablePlanet = new JToggleButton("禁用星球");
+        disablePlanet.setSelected(lastOpenManager.getBoolean("disablePlanet", false));
+        disablePlanet.setBounds(250, 50, 150, 30); // 设置按钮的宽度和高度
+        disablePlanet.addActionListener(e -> {
+            lastOpenManager.putBoolean("disablePlanet", disablePlanet.isSelected());
             lastOpenManager.save();
         });
 
         add(levelPath);
         add(selectFile);
         add(startButton);
-        /*add(showBPM);
-        add(dynamicCameraSpeed);*/
+        add(disablePlanet);
+
 
         pack(); // 自动调整窗口大小以适应组件
         setLocationRelativeTo(null); // 将窗口居中显示

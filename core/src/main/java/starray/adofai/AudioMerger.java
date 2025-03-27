@@ -1,17 +1,10 @@
 package starray.adofai;
 
-import org.json.JSONArray;
-
 import javax.sound.sampled.*;
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
-
-import static javax.sound.sampled.AudioFileFormat.*;
 
 public class AudioMerger {
     public static void mixAudio(File baseFile, List<AudioInsert> inserts, File output)

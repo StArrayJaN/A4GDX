@@ -36,6 +36,7 @@ public class ADOFAI extends ApplicationAdapter {
 
     //region 全局变量
     public static OrthographicCamera camera;
+    private final boolean disablePlanet;
     List<Tile> tiles = new ArrayList<>();
     List<Tile> reverseTiles = new ArrayList<>();
     List<Music> musics = new ArrayList<>();
@@ -102,8 +103,8 @@ public class ADOFAI extends ApplicationAdapter {
         hudBatch = new SpriteBatch();
 
         camera.zoom = 5f;
-        bluePlanet = new Planet(Color.BLUE);
-        redPlanet = new Planet(Color.RED);
+        bluePlanet = new Planet(Color.BLUE,true);
+        redPlanet = new Planet(Color.RED,true);
         currPlanet = bluePlanet;
         lastPlanet = redPlanet;
         generateConnectedTiles();
@@ -115,7 +116,6 @@ public class ADOFAI extends ApplicationAdapter {
     public void render() {
         timer += Gdx.graphics.getDeltaTime();
         ScreenUtils.clear(Color.BLACK);
-        shader.bind();
         updateFPS();
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("FPS: ").append(fps).append("\n");
@@ -132,18 +132,23 @@ public class ADOFAI extends ApplicationAdapter {
         } else if (cameraSpeed == 1f) {
             camera.position.set(currentTile.getPosition(), 0);
         }
-        shader.setUniformMatrix("u_proj", camera.combined);
+
         for (Tile tile : reverseTiles) {
             // 检查是否在摄像机视锥体内
             if (camera.frustum.pointInFrustum(new Vector3(tile.getPosition().x, tile.getPosition().y, 0)) && !tile.isHitEd()) {
-                tile.render(shader);
+                tile.render();
             }
         }
-        rotationSpeed = (float) ((currentTile.isCW ? -1 : 1) * (currentTile.bpm / 60f) * 180 * Gdx.graphics.getDeltaTime());
-        angle += rotationSpeed;
-        if (angle >= 360) angle = 0;
-        lastPlanet.render();
-        currPlanet.render();
+        if (!disablePlanet) {
+            rotationSpeed = ((currentTile.isCW ? -1 : 1) * (currentTile.bpm / 60f) * 180 * Gdx.graphics.getDeltaTime());
+            angle += rotationSpeed;
+            if (angle >= 360) angle = 0;
+
+            lastPlanet.update(Gdx.graphics.getDeltaTime());
+            currPlanet.update(Gdx.graphics.getDeltaTime());
+            lastPlanet.render();
+            currPlanet.render();
+        }
         Vector2 position = new Vector2(MathUtils.cosDeg(angle) * Tile.length * 2, MathUtils.sinDeg(angle) * Tile.length * 2);
         lastPlanet.setPosition(new Vector2(position).add(currentTile.getPosition()));
         keyEvent();
@@ -167,10 +172,9 @@ public class ADOFAI extends ApplicationAdapter {
     //endregion
 
     //region 方法体
-    public ADOFAI(Level level, boolean dynamicCameraSpeed, boolean showBPM) {
+    public ADOFAI(Level level, boolean disablePlanet) {
         this.level = level;
-        this.dynamicCameraSpeed = dynamicCameraSpeed;
-        this.showBPM = showBPM;
+        this.disablePlanet = disablePlanet;
     }
 
     private void drawText(String text, float x, float y) {
@@ -240,7 +244,7 @@ public class ADOFAI extends ApplicationAdapter {
                             }
                         }
                     }
-                    Tile tile = new Tile(angle1, angle2 - 180, new Vector2(startPos));
+                    Tile tile = new Tile(angle1, angle2 - 180, new Vector2(startPos), shader);
                     if (i == angles.size()) {
                         tile.setIsMidspin(false);
                     } else {
@@ -256,21 +260,23 @@ public class ADOFAI extends ApplicationAdapter {
                 double bpm = level.getBPM();
                 for (int i = 0; i < tiles.size(); i++) {
                     Tile tile = tiles.get(i);
-                    if (level.hasEvent(i, "Twirl")) {
-                        JSONObject twirl = level.getEvents(i, "Twirl").get(0);
-                        if (twirl.getIntValue("floor") == i) {
-                            isCW = !isCW;
+                    if (!disablePlanet && (level.hasEvent(i, "SetSpeed") || level.hasEvent(i, "Twirl"))) {
+                        if (level.hasEvent(i, "Twirl")) {
+                            JSONObject twirl = level.getEvents(i, "Twirl").get(0);
+                            if (twirl.getIntValue("floor") == i) {
+                                isCW = !isCW;
+                            }
                         }
-                    }
-                    if (level.hasEvent(i, "SetSpeed")) {
-                        JSONObject speed = level.getEvents(i, "SetSpeed").get(0);
-                        if (speed.get("speedType").equals("Multiplier")) {
-                            bpm *= speed.getDoubleValue("bpmMultiplier");
-                        } else {
-                            bpm = speed.getDoubleValue("beatsPerMinute");
+                        if (level.hasEvent(i, "SetSpeed")) {
+                            JSONObject speed = level.getEvents(i, "SetSpeed").get(0);
+                            if (speed.get("speedType").equals("Multiplier")) {
+                                bpm *= speed.getDoubleValue("bpmMultiplier");
+                            } else {
+                                bpm = speed.getDoubleValue("beatsPerMinute");
+                            }
                         }
+                        tilesProgress = String.format("正在设置事件，进度:%d/%d", i, tiles.size());
                     }
-                    tilesProgress = String.format("正在设置事件，进度:%d/%d", i, tiles.size());
                     tile.bpm = (float) bpm;
                     tile.isCW = isCW;
                     if (i < tiles.size() - 1) {
@@ -320,19 +326,20 @@ public class ADOFAI extends ApplicationAdapter {
             new Thread(() -> {
                 musics.add(finalMusic);
                 if (finalMusic != null) {
+                    finalMusic.setVolume(0.5f);
                     finalMusic.play();
                 }
             }).start();
             final var h = hitSound;
             if (!Tools.isAndroid()) {
-                hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 50, () -> {
+                hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 5, () -> {
                     if (h != null) {
                         h.play();
                     }
                 }, 0));
                 hitsoundThread.start();
             }
-            gameThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 50, this::start, 0));
+            gameThread = new Thread(() -> Tools.sleepRun(level.getOffset() + 5, this::start, 0));
             gameThread.start();
             isStarted = true;
         } else if (Gdx.input.isKeyPressed(Keys.R) || Gdx.input.isTouched(4)) {
@@ -380,7 +387,8 @@ public class ADOFAI extends ApplicationAdapter {
         Thread.sleep(1000);
         gameThread = new Thread(() -> Tools.sleepRun(level.getOffset(), this::start, 5));
         gameThread.start();
-        if (!Tools.isAndroid()) hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset(), musics.get(0)::play, 4));
+        if (!Tools.isAndroid())
+            hitsoundThread = new Thread(() -> Tools.sleepRun(level.getOffset(), musics.get(0)::play, 4));
         if (!Tools.isAndroid()) hitsoundThread.start();
         if (musics.size() == 2) {
             musics.get(1).play();
@@ -391,6 +399,7 @@ public class ADOFAI extends ApplicationAdapter {
         if (currentTileIndex >= tiles.size() - 1) {
             return;
         }
+        currentTile.setAlpha(0);
         currentTileIndex++;
         if (currentTile.getNextTile() != null && currentTile.getNextTile().isMidspin()) {
             currentTile.getPrevTile().setHitEd(true);
@@ -412,15 +421,15 @@ public class ADOFAI extends ApplicationAdapter {
             }
             ).start();
         }
-        if (!currentTile.getPrevTile().isMidspin()) {
+        if (!currentTile.getPrevTile().isMidspin() && !disablePlanet) {
             Planet temp = currPlanet;
             currPlanet = lastPlanet;
             lastPlanet = temp;
         }
 
         cameraSpeed = Tools.calculateSpeed(currentTile.bpm);
-        angle = Tile.Game.fmod(currentTile.getPrevTile().angle + 180,360);
-        currPlanet.move(currentTile.getPosition());
+        angle = Tile.Game.fmod(currentTile.getPrevTile().angle + 180, 360);
+        if (!disablePlanet) currPlanet.move(currentTile.getPosition());
     }
     //endregion
 }

@@ -43,9 +43,22 @@ public class LastOpenManager {
     public void putData(String key, String value) {
         info.put(key, value);
     }
+    public void putDouble(String key, double value) {
+        info.put(key, value);
+    }
+    public void putBoolean(String key, boolean value) {
+        info.put(key, value);
+    }
 
     public String getData(String key, String defaultValue) {
         return info.optString(key, defaultValue);
+    }
+    public double getDouble(String key, double defaultValue) {
+        return info.optDouble(key, defaultValue);
+    }
+
+    public boolean getBoolean(String key, boolean defaultValue) {
+        return info.optBoolean(key, defaultValue);
     }
 
     public JSONObject getInfo() {

@@ -13,6 +13,8 @@ import com.badlogic.gdx.utils.FloatArray;
 import java.util.ArrayList;
 import java.util.List;
 
+import static starray.adofai.libgdx.ADOFAI.camera;
+
 public class Tile {
 
     private float startAngle;
@@ -37,10 +39,12 @@ public class Tile {
     private SpriteBatch sprite;
 
     private boolean hited = false;
+    private ShaderProgram shader;
 
     private List<Event> events;
 
-    public Tile(float startAngle, float endAngle, Vector2 pos) {
+    public Tile(float startAngle, float endAngle, Vector2 pos,ShaderProgram shader) {
+        this.shader = shader;
         this.startAngle = startAngle;
         this.endAngle = endAngle;
         position = pos;
@@ -92,11 +96,18 @@ public class Tile {
         width *= scale;
     }
 
-    public void render(ShaderProgram shader) {
+    public void render() {
+        shader.bind();
+        shader.setUniformMatrix("u_proj", camera.combined);
         shader.setUniformf("u_color", Color.valueOf("#debb7b"));
         shader.setUniformMatrix("u_model", new Matrix4().translate(position.x, position.y, 0));
         shader.setUniformf("u_alpha", alpha);
         mesh.render(shader, GL20.GL_TRIANGLES);
+    }
+
+    public void setAlpha(float alpha) {
+        this.alpha = MathUtils.clamp(alpha,0,1);
+        /*shader.setUniformf("u_alpha", MathUtils.clamp(alpha,0,1));*/
     }
 
     public static class Game {
