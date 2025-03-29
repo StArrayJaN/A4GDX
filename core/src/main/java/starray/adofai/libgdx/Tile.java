@@ -1,10 +1,9 @@
 package starray.adofai.libgdx;
 
 import com.badlogic.gdx.graphics.*;
-import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector2;
@@ -36,12 +35,12 @@ public class Tile {
     public boolean isCW;
 
     private Texture icon;
+    private TextureRegion iconRegion;
     private SpriteBatch sprite;
 
     private boolean hited = false;
     private ShaderProgram shader;
 
-    private List<Event> events;
 
     public Tile(float startAngle, float endAngle, Vector2 pos,ShaderProgram shader) {
         this.shader = shader;
@@ -63,7 +62,6 @@ public class Tile {
     }
 
     public void setIcon(Texture icon) {
-        sprite = new SpriteBatch((int)width);
         this.icon = icon;
     }
 
@@ -86,29 +84,39 @@ public class Tile {
         return this;
     }
 
-    public Tile setPosition(float x, float y) {
-        position.set(x, y);
-        return this;
-    }
-
-    public static void scale(float scale) {
-        length *= scale;
-        width *= scale;
+    public void initIcon() {
+        if (icon != null && sprite == null) {
+            sprite = new SpriteBatch((int)width);
+            iconRegion = new TextureRegion(icon);
+        }
     }
 
     public void render() {
+        // Render the icon if it exists
         shader.bind();
         shader.setUniformMatrix("u_proj", camera.combined);
-        shader.setUniformf("u_color", Color.valueOf("#debb7b"));
+        shader.setUniformf("u_color", Color.valueOf("#debb7bff"));
         shader.setUniformMatrix("u_model", new Matrix4().translate(position.x, position.y, 0));
-        shader.setUniformf("u_alpha", alpha);
+        shader.setUniformf("u_alpha", 0);
         mesh.render(shader, GL20.GL_TRIANGLES);
+        if (icon != null && sprite != null) {
+            sprite.setProjectionMatrix(camera.combined);
+            sprite.begin();
+            // Calculate icon position and size
+            float iconSize = width * 2f; // Adjust size as needed
+            float halfSize = iconSize / 2;
+            // Draw the icon with the same alpha as the tile
+            sprite.setColor(1, 1, 1, alpha);
+            sprite.draw(iconRegion,
+                position.x - halfSize, position.y - halfSize, // position
+                halfSize, halfSize,
+                iconSize, iconSize,
+                isCW ? 1 : -1,1,
+                0);
+            sprite.end();
+        }
     }
 
-    public void setAlpha(float alpha) {
-        this.alpha = MathUtils.clamp(alpha,0,1);
-        /*shader.setUniformf("u_alpha", MathUtils.clamp(alpha,0,1));*/
-    }
 
     public static class Game {
         public static void CreateCircle(Vector3 center, float r, Color c, List<Vector3> vertices, List<Integer> triangles, List<Color> colors, int resolution) {

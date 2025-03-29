@@ -43,7 +43,7 @@ dependencies {
     implementation "io.github.berstanio:gdx-svmhelper-backend-lwjgl3:$graalHelperVersion"
       implementation "io.github.berstanio:gdx-svmhelper-extension-box2d:$graalHelperVersion"
   }
-  implementation("org.json:json:+")
+  implementation("org.json:json:20250107")
 
 }
 
@@ -62,6 +62,13 @@ tasks.register('runJar', JavaExec) {
   classpath = files(jar.archivePath)
   jvmArgs("-Xms4G", "-Xmx16G")
 }
+
+tasks.register('runExe', Exec) {
+  dependsOn createAllExecutables
+  workingDir launch4j.outputDirectory.asFile.get()
+  commandLine launch4j.outputDirectory.asFile.get().getAbsolutePath() + File.separator + launch4j.outfile.get()
+}
+
 jar {
 // sets the name of the .jar file this produces to the name of the game or app, with the version after.
   archiveFileName.set("${appName}-${projectVersion}.jar")

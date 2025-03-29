@@ -5,11 +5,11 @@ import com.badlogic.gdx.Application;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
-import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
@@ -59,8 +59,6 @@ public class ADOFAI extends ApplicationAdapter {
     private float elapsedTime;
     private int frameCount;
     boolean isPaused = false;
-    boolean dynamicCameraSpeed;
-    boolean showBPM;
     String tilesProgress = "";
     private Thread generateTilesThread;
     private ShaderProgram shader;
@@ -74,20 +72,35 @@ public class ADOFAI extends ApplicationAdapter {
     private float rotationSpeed;
     //endregion
 
+    //region 图标
+    private Texture swirlRed;
+    private Texture speedUp;
+    private Texture speedDown;
+    //endregion
+
     //region 生命周期
     @Override
     public void create() {
         currentTileIndex = 0;
         if (!Tools.isAndroid()) {
-            new Thread(() -> {
+           Thread thread = new Thread(() -> {
                 try {
                     bpmList = LevelUtils.getNoteTimes(level);
                     AudioMerger.export(Tools.getOrExportResources("kick.wav"), bpmList, level.getCurrentLevelDir() + File.separator + "HitSounds.wav");
                 } catch (Exception ex) {
                     throw new RuntimeException(ex);
                 }
-            }).start();
+            });
+           thread.start();
+            /*try {
+                thread.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }*/
         }
+        swirlRed = new Texture("texture/swirl_red.png");
+        speedUp = new Texture("texture/tile_rabbit_light_new0.png");
+        speedDown = new Texture("texture/tile_snail_light_new0.png");
         sound = Gdx.audio.newSound(Gdx.files.internal("kick.wav"));
         shader = new ShaderProgram(Gdx.files.internal("shaders/vertex.glsl").readString(),
             Gdx.files.internal("shaders/fragment.glsl").readString());
@@ -172,8 +185,11 @@ public class ADOFAI extends ApplicationAdapter {
     //endregion
 
     //region 方法体
+    // 构造函数，用于初始化ADOFAI对象
     public ADOFAI(Level level, boolean disablePlanet) {
+        // 初始化level属性
         this.level = level;
+        // 初始化disablePlanet属性
         this.disablePlanet = disablePlanet;
     }
 
@@ -193,23 +209,6 @@ public class ADOFAI extends ApplicationAdapter {
             elapsedTime = 0;
         }
     }
-/*
-    private void calculateBPM() {
-        double bpm = level.getBPM();
-        speedList = new double[level.getCharts().size()];
-        List<JSONObject> events = level.getAllEvents("SetSpeed");
-        for (int i = 0; i < level.getCharts().size(); i++) {
-            for (JSONObject event : events) {
-                if (event.getIntValue("floor") == i && event.get("speedType").equals("Multiplier")) {
-                    bpm *= event.getDoubleValue("bpmMultiplier");
-                } else {
-                    bpm = event.getDoubleValue("beatsPerMinute");
-                }
-            }
-            getSpeedProgress = String.format("计算速度中,当前：%d/%d", i, level.getCharts().size());
-            speedList[i] = bpm;
-        }
-    }*/
 
     private void generateConnectedTiles() {
         generateTilesThread = new Thread(() -> {
@@ -258,6 +257,7 @@ public class ADOFAI extends ApplicationAdapter {
                     tilesProgress = String.format("创建轨道中，进度:%d/%d", i, angles.size());
                 }
                 double bpm = level.getBPM();
+                double lastbpm;
                 for (int i = 0; i < tiles.size(); i++) {
                     Tile tile = tiles.get(i);
                     if (!disablePlanet && (level.hasEvent(i, "SetSpeed") || level.hasEvent(i, "Twirl"))) {
@@ -265,20 +265,27 @@ public class ADOFAI extends ApplicationAdapter {
                             JSONObject twirl = level.getEvents(i, "Twirl").get(0);
                             if (twirl.getIntValue("floor") == i) {
                                 isCW = !isCW;
+                                if (i < tiles.size() -1){
+                                    tile.setIcon(swirlRed);
+                                }
                             }
                         }
                         if (level.hasEvent(i, "SetSpeed")) {
+                            lastbpm = bpm;
                             JSONObject speed = level.getEvents(i, "SetSpeed").get(0);
                             if (speed.get("speedType").equals("Multiplier")) {
                                 bpm *= speed.getDoubleValue("bpmMultiplier");
                             } else {
                                 bpm = speed.getDoubleValue("beatsPerMinute");
                             }
+                            final Texture speedIcon = bpm < lastbpm ? speedDown : speedUp;
+                            tile.setIcon(speedIcon);
                         }
                         tilesProgress = String.format("正在设置事件，进度:%d/%d", i, tiles.size());
                     }
                     tile.bpm = (float) bpm;
                     tile.isCW = isCW;
+
                     if (i < tiles.size() - 1) {
                         tile.setNext(tiles.get(i + 1));
                     }
@@ -309,6 +316,9 @@ public class ADOFAI extends ApplicationAdapter {
         } else if ((Gdx.input.isKeyPressed(Keys.SPACE) || Gdx.input.isTouched()) && !isStarted) {
             if (generateTilesThread.isAlive()) {
                 return;
+            }
+            for (Tile tile: tiles) {
+                tile.initIcon();
             }
             Music hitSound = null;
             if (Gdx.app.getType() != Application.ApplicationType.Android) {
@@ -399,7 +409,6 @@ public class ADOFAI extends ApplicationAdapter {
         if (currentTileIndex >= tiles.size() - 1) {
             return;
         }
-        currentTile.setAlpha(0);
         currentTileIndex++;
         if (currentTile.getNextTile() != null && currentTile.getNextTile().isMidspin()) {
             currentTile.getPrevTile().setHitEd(true);

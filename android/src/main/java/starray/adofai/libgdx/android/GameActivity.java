@@ -4,15 +4,10 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.os.Bundle;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
 
-import java.io.IOException;
-
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import starray.adofai.Level;
-import starray.adofai.LevelUtils;
 import starray.adofai.libgdx.ADOFAI;
 import starray.adofai.libgdx.Tools;
 
@@ -28,9 +23,7 @@ public class GameActivity extends AndroidApplication {
             sharedDataManager.putData("lastPath", path);
             sharedDataManager.putBoolData("dynamicCameraSpeed",getIntent().getBooleanExtra("dynamicCameraSpeed",false));
             sharedDataManager.putBoolData("showBPM", getIntent().getBooleanExtra("showBPM",false));
-            initialize(new ADOFAI(Level.readLevelFile(path),
-                getIntent().getBooleanExtra("dynamicCameraSpeed",false),
-                getIntent().getBooleanExtra("showBPM",false)), configuration);
+            initialize(new ADOFAI(Level.readLevelFile(path), false), configuration);
         } catch (Exception e) {
             AlertDialog alertDialog = new AlertDialog.Builder(this)
                 .setMessage(Tools.getStackTrace(e))

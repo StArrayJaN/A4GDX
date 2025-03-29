@@ -2,15 +2,12 @@ package starray.adofai.libgdx.android;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.Context;
 import android.content.Intent;
-import android.nfc.FormatException;
 import android.os.Bundle;
 
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ToggleButton;
@@ -23,10 +20,7 @@ import starray.adofai.Level;
 import starray.adofai.libgdx.R;
 import starray.adofai.libgdx.Tools;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 
 /**
  * Launches the Android application.
@@ -93,8 +87,6 @@ public class AndroidLauncher extends AppCompatActivity {
         }
         Intent intent = new Intent(this, GameActivity.class);
         intent.putExtra("path", path);
-        intent.putExtra("showBPM", showBPM.isChecked());
-        intent.putExtra("dynamicCameraSpeed", dynamicCameraSpeed.isChecked());
         startActivity(intent);
     }
 
