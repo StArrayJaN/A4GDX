@@ -1,4 +1,4 @@
-package starray.adofai;;
+package starray.adofai;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.FocusEvent;

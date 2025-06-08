@@ -16,12 +16,10 @@
 
 package starray.adofai.libgdx.lwjgl3;
 
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import org.lwjgl.system.macosx.LibC;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;

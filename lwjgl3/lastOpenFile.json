@@ -1,5 +1,6 @@
 {
-  "path": "F:\\ADOFAI\\the moon\\level2.adofai",
+  "path": "D:\\ADOFAI\\2025\\Full.adofai",
   "dynamicCameraSpeed": "false",
-  "showBPM": "false"
+  "showBPM": "false",
+  "disablePlanet": false
 }

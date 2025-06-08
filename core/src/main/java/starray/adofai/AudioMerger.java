@@ -52,7 +52,8 @@ public class AudioMerger {
 
                 // 限制插入音频的长度，防止超出基础音频范围
                 int insertLength = Math.min(clip.pcmData.length, base.pcmData.length - pos);
-                if (insertLength <= 0) {
+                if (insertLength < 0) {
+                    System.out.println(insertLength);
                     throw new IllegalArgumentException("插入点超出基础音频范围");
                 }
                 clip.pcmData = Arrays.copyOfRange(clip.pcmData, 0, insertLength);

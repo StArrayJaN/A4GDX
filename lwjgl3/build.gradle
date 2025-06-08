@@ -31,6 +31,8 @@ launch4j {
   jvmOptions = ['-Dfile.encoding=UTF-8','-Xms4G', '-Xmx16G']
 }
 dependencies {
+  implementation "net.java.dev.jna:jna:5.15.0"
+  implementation "net.java.dev.jna:jna-platform:5.15.0"
   implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
   implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
   implementation "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"

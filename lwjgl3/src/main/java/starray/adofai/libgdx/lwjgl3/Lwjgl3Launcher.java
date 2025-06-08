@@ -1,22 +1,18 @@
 package starray.adofai.libgdx.lwjgl3;
 
-import com.badlogic.gdx.Graphics;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 
-import starray.adofai.AudioMerger;
-import starray.adofai.Level;
-import starray.adofai.LevelUtils;
+import starray.adofai.level.Level;
 import starray.adofai.libgdx.ADOFAI;
+import starray.adofai.libgdx.Event;
 import starray.adofai.libgdx.Tools;
 
-import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Launches the desktop (LWJGL3) application.
@@ -35,6 +31,21 @@ public class Lwjgl3Launcher extends JFrame {
         initGUI();
     }
 
+    public static void sendMessage(String title,String message) throws AWTException {
+        //Obtain only one instance of the SystemTray object
+        SystemTray tray = SystemTray.getSystemTray();
+
+        //If the icon is a file
+        Image image = Toolkit.getDefaultToolkit().createImage("icon.png");
+        //Alternative (if the icon is on the classpath):
+        //Image image = Toolkit.getDefaultToolkit().createImage(getClass().getResource("icon.png"));
+        TrayIcon trayIcon = new TrayIcon(image, "Tray Demo");
+        //Let the system resize the image if needed
+        trayIcon.setImageAutoSize(true);
+        //Set tooltip text for the tray icon
+        tray.add(trayIcon);
+        trayIcon.displayMessage(title,message, TrayIcon.MessageType.INFO);
+    }
     public void initGUI() {
         setTitle("A4GDX");
         setLayout(null);
@@ -71,7 +82,21 @@ public class Lwjgl3Launcher extends JFrame {
         startButton.addActionListener(e -> {
             try {
                 Level level = Level.readLevelFile(levelPath.getText());
-                new Lwjgl3Application(new ADOFAI(level,lastOpenManager.getBoolean("disablePlanet", false)), getDefaultConfiguration());
+                new Lwjgl3Application(new ADOFAI(level, lastOpenManager.getBoolean("disablePlanet", false), new Event() {
+                    @Override
+                    public void onLoadDone(Level level) {
+                        try {
+                            sendMessage("A4GDX",String.format("关卡:%s加载完成",new File(level.getSetting("songFilename").toString()).getName()));
+                        } catch (AWTException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    }
+
+                    @Override
+                    public void onPlay(Level level) {
+
+                    }
+                }), getDefaultConfiguration());
             } catch (Exception ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(null, "发生错误\n" + Tools.getStackTrace(ex));
@@ -97,7 +122,6 @@ public class Lwjgl3Launcher extends JFrame {
         setVisible(true);
     }
 
-
     private static Lwjgl3ApplicationConfiguration getDefaultConfiguration() {
         Lwjgl3ApplicationConfiguration configuration = new Lwjgl3ApplicationConfiguration();
         configuration.setTitle("A4GDX");
@@ -114,5 +138,67 @@ public class Lwjgl3Launcher extends JFrame {
         //// You can change these files; they are in lwjgl3/src/main/resources/ .
         configuration.setWindowIcon("libgdx128.png", "libgdx64.png", "libgdx32.png", "libgdx16.png");
         return configuration;
+    }
+
+    class SystemMonitor {
+
+        private static final AtomicLong lastHeartbeat = new AtomicLong(System.currentTimeMillis());
+
+        // 启动内存和心跳监控
+        public static void startMonitoring() {
+            startMemoryMonitor();
+            startWatchdogThread();
+        }
+
+        // 更新心跳时间戳
+        public static void updateHeartbeat() {
+            lastHeartbeat.set(System.currentTimeMillis());
+        }
+
+        // 监控内存使用
+        private static void startMemoryMonitor() {
+            Thread memoryThread = new Thread(() -> {
+                Runtime runtime = Runtime.getRuntime();
+                while (true) {
+                    long used = runtime.totalMemory() - runtime.freeMemory();
+                    long max = runtime.maxMemory();
+                    double usage = (double) used / max * 100;
+                    System.out.printf("内存使用: %.2f%%%n", usage);
+                    try {
+                        Thread.sleep(5000); // 每5秒检查一次内存
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            });
+            memoryThread.setDaemon(true);
+            memoryThread.start();
+        }
+
+        // 看门狗线程检测卡死
+        private static void startWatchdogThread() {
+            Thread watchdogThread = new Thread(() -> {
+                while (true) {
+                    long currentTime = System.currentTimeMillis();
+                    long lastBeat = lastHeartbeat.get();
+                    if (currentTime - lastBeat > 5000) {
+                        System.err.println("应用卡死超过5秒，即将终止...");
+                        System.exit(1); // 终止JVM
+                    }
+                    try {
+                        Thread.sleep(1000); // 每秒检查一次
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            });
+            watchdogThread.setDaemon(true);
+            watchdogThread.start();
+        }
+    }
+    private static void startMemoryThread() {
+        SystemMonitor.startMonitoring();
     }
 }
